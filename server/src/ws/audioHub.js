@@ -26,6 +26,7 @@ export function attachAudioHub(server) {
       degraded: false,
       interim: '',
       peakLevel: 0,
+      attemptId: 0,
     };
 
     const send = (type, payload = {}) => {
@@ -84,6 +85,7 @@ export function attachAudioHub(server) {
           }
           const story = storiesRepo.get(session.storyId);
           state.sessionId = session.id;
+          state.attemptId = Number(msg.attemptId) || state.attemptId + 1;
           state.expectedText =
             (typeof msg.expectedText === 'string' && msg.expectedText.trim()) ||
             story?.text ||
@@ -93,6 +95,7 @@ export function attachAudioHub(server) {
           state.peakLevel = 0;
           send('session_bound', {
             sessionId: session.id,
+            attemptId: state.attemptId,
             expectedChars: state.expectedText.length,
             expectedPreview: state.expectedText.slice(0, 80),
           });
@@ -143,17 +146,18 @@ export function attachAudioHub(server) {
 
         if (msg.type === 'end') {
           const mime = msg.mime || 'audio/webm';
+          const attemptId = Number(msg.attemptId) || state.attemptId;
           // Client may send the exact target line (selected sentence) with the end event
           if (typeof msg.expectedText === 'string' && msg.expectedText.trim()) {
             state.expectedText = msg.expectedText.trim();
           }
-          // Allow a short wait for late binary chunks after recorder.stop
-          await new Promise((r) => setTimeout(r, 180));
           const audioBuffer = Buffer.concat(state.chunks);
+          state.chunks = [];
           const typed = String(msg.transcript || state.interim || '').trim();
           const allowTyped = Boolean(msg.allowTypedFallback) && typed.length > 0;
 
           send('assessing', {
+            attemptId,
             message: 'Listening to your reading…',
             audioBytes: audioBuffer.length,
             expectedPreview: state.expectedText.slice(0, 80),
@@ -167,7 +171,8 @@ export function attachAudioHub(server) {
             allowTypedFallback: allowTyped,
           });
 
-          if (state.sessionId) {
+          const isCurrentAttempt = attemptId === state.attemptId;
+          if (state.sessionId && isCurrentAttempt) {
             persistAssessment(state.sessionId, result);
           }
 
@@ -175,6 +180,8 @@ export function attachAudioHub(server) {
           const v = result.validation || {};
           send('final_assessment', {
             ...result,
+            attemptId,
+            stale: !isCurrentAttempt,
             passed,
             action: passed ? 'complete_allowed' : 'retry',
             message:
@@ -195,15 +202,18 @@ export function attachAudioHub(server) {
               scorer: v.scorer,
             },
           });
-          state.chunks = [];
           return;
         }
 
         if (msg.type === 'retry') {
+          state.attemptId = Number(msg.attemptId) || state.attemptId + 1;
           state.chunks = [];
           state.interim = '';
           state.peakLevel = 0;
-          send('retry_ack', { message: 'Ready when you are — take a breath and begin.' });
+          send('retry_ack', {
+            attemptId: state.attemptId,
+            message: 'Ready when you are — take a breath and begin.',
+          });
         }
       } catch (err) {
         console.error('WS audio error', err);

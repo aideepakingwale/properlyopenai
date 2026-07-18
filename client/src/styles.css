@@ -812,6 +812,41 @@ textarea:focus {
   color: var(--ink-soft);
 }
 
+.mic-ready-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 18px;
+  border: 3px solid rgba(36, 48, 79, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.mic-ready-card strong {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+.mic-ready-card span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mic-ready-card.waiting {
+  border-color: rgba(245, 158, 11, 0.5);
+  background: rgba(255, 244, 191, 0.82);
+}
+
+.mic-ready-card.ready {
+  border-color: rgba(34, 197, 94, 0.48);
+  background: rgba(220, 252, 231, 0.85);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+
 .heard-line {
   margin: 0.75rem 0;
   padding: 0.65rem 0.8rem;
@@ -822,6 +857,59 @@ textarea:focus {
 
 .heard-line p {
   margin: 0.25rem 0;
+}
+
+.live-heard-panel {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  border-radius: 18px;
+  border: 3px solid rgba(102, 117, 255, 0.18);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.65);
+}
+
+.live-heard-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.55rem;
+}
+
+.live-heard-head strong {
+  color: var(--ink);
+}
+
+.live-heard-head span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.live-heard-panel p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.live-word-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.live-word {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #e9f8ff, #f5e7ff);
+  border: 2px solid rgba(36, 48, 79, 0.1);
+  color: var(--ink);
+  font-weight: 900;
 }
 
 .scorer-tag {
@@ -844,6 +932,49 @@ textarea:focus {
   margin-top: 0.75rem;
 }
 
+.score-hero {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 3px solid rgba(36, 48, 79, 0.08);
+}
+
+.score-ring {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--blue), var(--berry));
+  box-shadow: 0 5px 0 rgba(36, 48, 79, 0.16);
+}
+
+.score-pass .score-ring {
+  background: linear-gradient(135deg, #22c55e, #14b8a6);
+}
+
+.score-fail .score-ring {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.score-hero strong {
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.score-hero p {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
 .score-pass .score {
   color: var(--leaf-deep);
   font-weight: 800;
@@ -864,10 +995,10 @@ textarea:focus {
 }
 
 .word-score {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 0.15rem;
-  padding: 0.5rem 0.7rem;
+  padding: 0.65rem 0.75rem;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.75);
   border: 3px solid rgba(36, 48, 79, 0.08);
@@ -876,8 +1007,20 @@ textarea:focus {
 .word-score-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem;
+}
+
+.word-score-mark {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: var(--berry);
+  font-weight: 900;
 }
 
 .word-score-pct {
@@ -907,13 +1050,27 @@ textarea:focus {
   background: rgba(102, 217, 168, 0.18);
 }
 
+.word-score-exact .word-score-mark {
+  background: #168a5a;
+}
+
 .word-score-close {
   border-color: rgba(255, 178, 63, 0.55);
   background: rgba(255, 230, 109, 0.2);
 }
 
+.word-score-close .word-score-mark {
+  background: #f59e0b;
+}
+
 .word-score-partial {
   border-color: rgba(244, 162, 97, 0.55);
+}
+
+.word-score-partial .word-score-mark,
+.word-score-wrong .word-score-mark,
+.word-score-missing .word-score-mark {
+  background: #ef4444;
 }
 
 .word-score-wrong,

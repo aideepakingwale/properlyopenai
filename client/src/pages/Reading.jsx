@@ -269,6 +269,10 @@ export default function Reading() {
     : story.illustrationCached
       ? 'Reused story picture'
       : 'Fresh story picture';
+  const liveWords = extractWords(audio.liveTranscript).slice(-14);
+  const currentScore =
+    assessment?.validation?.displayScore ??
+    (assessment?.validation ? Math.round((assessment.validation.combined || 0) * 100) : null);
 
   return (
     <section className="reading">
@@ -510,6 +514,27 @@ export default function Reading() {
             voice is sent to the server, transcribed, and compared to the words/phonemes. Empty or
             random speech will not pass.
           </p>
+          <div
+            className={`mic-ready-card ${
+              audio.readyToSpeak ? 'ready' : audio.preparing ? 'waiting' : ''
+            }`}
+            aria-live="polite"
+          >
+            <strong>
+              {audio.readyToSpeak
+                ? 'Speak now'
+                : audio.preparing
+                  ? 'Getting the mic ready'
+                  : 'Press Start, then wait for Speak now'}
+            </strong>
+            <span>
+              {audio.readyToSpeak
+                ? 'Your voice is being recorded.'
+                : audio.preparing
+                  ? 'Hold on for a moment before reading.'
+                  : 'This keeps the first word from being missed.'}
+            </span>
+          </div>
           <div className="level-meter" aria-hidden="true">
             <div className="level-fill" style={{ width: `${Math.min(100, levelPct(audio.level))}%` }} />
           </div>
@@ -518,10 +543,30 @@ export default function Reading() {
             {audio.connected ? '' : ' (connecting…)'}
             {assessment?.path ? ` · path: ${assessment.path}` : ''}
           </p>
+          {audio.recording && (
+            <div className="live-heard-panel" aria-live="polite">
+              <div className="live-heard-head">
+                <strong>Words I heard</strong>
+                <span>{audio.speechSupported ? 'live guide' : 'final score after stop'}</span>
+              </div>
+              {liveWords.length ? (
+                <div className="live-word-list">
+                  {liveWords.map((word, index) => (
+                    <span key={`${word}-${index}`} className="live-word">
+                      {word}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p>Listening...</p>
+              )}
+            </div>
+          )}
           <div className="btn-row">
             {!audio.recording ? (
               <button
                 className="btn primary"
+                disabled={audio.preparing}
                 onClick={() => {
                   // Always score a single selected sentence (not the whole page)
                   if (selectedSentence < 0 && sentences.length) {
@@ -531,11 +576,12 @@ export default function Reading() {
                     audio.setExpectedText(expectedForAssess);
                   }
                   setAssessment(null);
+                  setManualTranscript('');
                   setError('');
                   audio.startRecording();
                 }}
               >
-                Start reading aloud
+                {audio.preparing ? 'Getting mic ready...' : 'Start reading aloud'}
               </button>
             ) : (
               <button
@@ -630,20 +676,24 @@ export default function Reading() {
           {error && <p className="error">{error}</p>}
           {assessment?.validation && (
             <div className={`score-panel ${assessment.passed ? 'score-pass' : 'score-fail'}`}>
-              <p className="score">
-                Overall{' '}
-                {assessment.validation.displayScore ??
-                  Math.round((assessment.validation.combined || 0) * 100)}
-                %
-                {assessment.passed ? ' · PASS' : ' · TRY AGAIN'}
-                {assessment.validation.scorer ? ` · ${assessment.validation.scorer}` : ''}
-              </p>
+              <div className="score-hero">
+                <span className="score-ring">{currentScore}%</span>
+                <div>
+                  <strong>{assessment.passed ? 'Great reading' : 'Try that line again'}</strong>
+                  <p>
+                    {assessment.passed
+                      ? 'You matched the sentence closely.'
+                      : 'Practise the highlighted words, then press Start again.'}
+                  </p>
+                </div>
+              </div>
               {Array.isArray(assessment.validation.wordScores) &&
                 assessment.validation.wordScores.length > 0 && (
                   <ul className="word-score-list" aria-label="Per-word phonics scores">
                     {assessment.validation.wordScores.map((w, i) => (
                       <li key={`${w.expected}-${i}`} className={`word-score word-score-${w.status}`}>
                         <span className="word-score-head">
+                          <span className="word-score-mark">{wordScoreMark(w.status)}</span>
                           <strong>{w.expected}</strong>
                           <span className="word-score-pct">{Math.round((w.score || 0) * 100)}%</span>
                           <span className="word-score-label">{w.label}</span>
@@ -671,4 +721,10 @@ export default function Reading() {
 
 function levelPct(level) {
   return Math.round(Math.min(1, level * 4) * 100);
+}
+
+function wordScoreMark(status) {
+  if (status === 'exact') return '✓';
+  if (status === 'close') return '~';
+  return '!';
 }

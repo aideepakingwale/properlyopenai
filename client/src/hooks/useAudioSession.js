@@ -10,19 +10,38 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   const mediaRef = useRef(null);
   const recorderRef = useRef(null);
   const analyserRef = useRef(null);
+  const recognitionRef = useRef(null);
   const rafRef = useRef(null);
   const expectedTextRef = useRef('');
   const chunksRef = useRef([]);
   const mimeRef = useRef('audio/webm');
+  const attemptRef = useRef(0);
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [level, setLevel] = useState(0);
   const [status, setStatus] = useState('idle');
   const [lastMessage, setLastMessage] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [speechSupported, setSpeechSupported] = useState(false);
 
   const cleanupLoop = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+  };
+
+  const stopSpeechRecognition = () => {
+    const recognition = recognitionRef.current;
+    recognitionRef.current = null;
+    if (!recognition) return;
+    recognition.onresult = null;
+    recognition.onerror = null;
+    recognition.onend = null;
+    try {
+      recognition.stop();
+    } catch {
+      /* ignore */
+    }
   };
 
   const connect = useCallback(() => {
@@ -60,11 +79,18 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
         }
         if (msg.type === 'assessment') onAssessment?.(msg);
         if (msg.type === 'final_assessment') {
+          if (msg.stale || (msg.attemptId && msg.attemptId !== attemptRef.current)) return;
           setStatus(msg.passed ? 'scored-pass' : 'scored-retry');
           onFinal?.(msg);
         }
         if (msg.type === 'assessing') {
+          if (msg.attemptId && msg.attemptId !== attemptRef.current) return;
           setStatus('processing');
+          if (msg.message) setLastMessage(msg.message);
+        }
+        if (msg.type === 'retry_ack') {
+          if (msg.attemptId) attemptRef.current = msg.attemptId;
+          setStatus('connected');
           if (msg.message) setLastMessage(msg.message);
         }
         if (msg.type === 'quality_ack') onQuality?.(msg);
@@ -92,8 +118,46 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
         /* ignore */
       }
       mediaRef.current?.getTracks().forEach((t) => t.stop());
+      stopSpeechRecognition();
     };
   }, [connect]);
+
+  const sendInterim = useCallback((transcript) => {
+    if (wsRef.current?.readyState === 1) {
+      wsRef.current.send(JSON.stringify({ type: 'interim', transcript }));
+    }
+  }, []);
+
+  const startSpeechRecognition = useCallback(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const supported = Boolean(SpeechRecognition);
+    setSpeechSupported(supported);
+    if (!supported) return;
+
+    stopSpeechRecognition();
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-GB';
+    recognition.onresult = (event) => {
+      const text = Array.from(event.results)
+        .map((result) => result?.[0]?.transcript || '')
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      setLiveTranscript(text);
+      if (text) sendInterim(text);
+    };
+    recognition.onerror = () => {
+      setSpeechSupported(false);
+    };
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch {
+      /* Some browsers throw if recognition is already starting. */
+    }
+  }, [sendInterim]);
 
   useEffect(() => {
     if (connected && sessionId && wsRef.current?.readyState === 1) {
@@ -124,11 +188,25 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   );
 
   const startRecording = async () => {
+    if (recording || preparing) return;
+    attemptRef.current += 1;
     chunksRef.current = [];
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true },
-    });
-    mediaRef.current = stream;
+    setLiveTranscript('');
+    setPreparing(true);
+    setStatus('getting-ready');
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      mediaRef.current = stream;
+    } catch (err) {
+      setPreparing(false);
+      setStatus('error');
+      setLastMessage(err?.message || 'Microphone permission was not granted.');
+      return;
+    }
 
     const ctx = new AudioContext();
     const source = ctx.createMediaStreamSource(stream);
@@ -162,6 +240,21 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     const recorder = new MediaRecorder(stream, { mimeType: mime });
     recorderRef.current = recorder;
 
+    recorder.onstart = () => {
+      startSpeechRecognition();
+      setPreparing(false);
+      setRecording(true);
+      setStatus('recording');
+      setLastMessage('Speak now.');
+    };
+
+    recorder.onerror = () => {
+      setPreparing(false);
+      setRecording(false);
+      setStatus('error');
+      setLastMessage('The microphone stopped unexpectedly. Please try again.');
+    };
+
     recorder.ondataavailable = async (e) => {
       if (!e.data?.size) return;
       chunksRef.current.push(e.data);
@@ -177,14 +270,21 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
         JSON.stringify({
           type: 'start',
           sessionId,
+          attemptId: attemptRef.current,
           expectedText: expectedTextRef.current || undefined,
         }),
       );
     }
 
-    recorder.start(250);
-    setRecording(true);
-    setStatus('recording');
+    try {
+      recorder.start(250);
+    } catch (err) {
+      setPreparing(false);
+      setRecording(false);
+      setStatus('error');
+      setLastMessage(err?.message || 'Could not start microphone recording.');
+      mediaRef.current?.getTracks().forEach((t) => t.stop());
+    }
   };
 
   /**
@@ -204,7 +304,9 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     if (expectedText) expectedTextRef.current = expectedText;
 
     cleanupLoop();
+    stopSpeechRecognition();
     const recorder = recorderRef.current;
+    setPreparing(false);
     setRecording(false);
     setStatus('processing');
 
@@ -221,6 +323,7 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
         wsRef.current.send(
           JSON.stringify({
             type: 'end',
+            attemptId: attemptRef.current,
             mime: mimeRef.current || 'audio/webm',
             transcript: typedTranscript,
             allowTypedFallback,
@@ -250,15 +353,11 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     }
   };
 
-  const sendInterim = (transcript) => {
-    if (wsRef.current?.readyState === 1) {
-      wsRef.current.send(JSON.stringify({ type: 'interim', transcript }));
-    }
-  };
-
   const requestRetry = () => {
+    attemptRef.current += 1;
+    setLiveTranscript('');
     if (wsRef.current?.readyState === 1) {
-      wsRef.current.send(JSON.stringify({ type: 'retry' }));
+      wsRef.current.send(JSON.stringify({ type: 'retry', attemptId: attemptRef.current }));
     }
     setStatus('connected');
   };
@@ -266,9 +365,13 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   return {
     connected,
     recording,
+    preparing,
+    readyToSpeak: recording && status === 'recording',
     level,
     status,
     lastMessage,
+    liveTranscript,
+    speechSupported,
     startRecording,
     stopRecording,
     sendInterim,
