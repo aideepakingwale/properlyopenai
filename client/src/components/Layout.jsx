@@ -8,7 +8,14 @@ export default function Layout({ children }) {
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand">
-          <span className="brand-mark" aria-hidden="true" />
+          <img
+            className="brand-mark"
+            src="/images/properly-app-icon-192.png"
+            alt=""
+            width="36"
+            height="36"
+            aria-hidden="true"
+          />
           <span className="brand-name">Properly</span>
         </Link>
         <nav>
