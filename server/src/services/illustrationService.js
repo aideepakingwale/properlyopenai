@@ -9,7 +9,7 @@ const CACHE_VERSION = 'v4';
 const INDEX_NAME = 'cache-index.json';
 
 /**
- * Image models are NOT in Cursor/OpenAI free daily chat limits — they bill at standard rates.
+ * Image generation is metered OpenAI API usage.
  * Always cache by scene hash; prefer low quality for lighter/cheaper kids art.
  */
 const DEFAULT_MODEL_CHAIN = ['gpt-image-1-mini', 'gpt-image-1', 'dall-e-2'];
@@ -223,7 +223,7 @@ async function generateWithModel(client, model, prompt) {
 
 /**
  * Generate (or reuse cached) kids-friendly illustration for a story.
- * Uses OpenAI image models (gpt-image-1 / DALL·E) and caches by scene hash.
+ * Uses OpenAI image models and caches by scene hash.
  */
 export async function generateIllustration({
   title,

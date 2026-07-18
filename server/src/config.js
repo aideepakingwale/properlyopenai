@@ -15,8 +15,9 @@ const hasKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.
 const clientDist = path.resolve(root, 'client', 'dist');
 
 /**
- * Chat defaults target Cursor/OpenAI free daily shared traffic (mini pool).
- * Image / Whisper / TTS models are outside that free allowance and are cached or optional.
+ * Chat defaults are conservative for local demos.
+ * Hackathon/live deployments can override OPENAI_CHAT_MODEL, for example with GPT-5.6.
+ * Image / Whisper / TTS calls are metered OpenAI API usage and are cached or optional.
  */
 const chatModel = (process.env.OPENAI_CHAT_MODEL || process.env.CHAT_MODEL || 'gpt-4o-mini').trim();
 const illustrationsEnabled =
@@ -27,11 +28,11 @@ export const config = {
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   mockMode: mockFlag || !hasKey,
-  /** Stories + Mrs Owl coach — prefer free-tier mini models */
+  /** Stories + Mrs Owl coach — override with OPENAI_CHAT_MODEL for hackathon judging */
   chatModel,
   jaccardThreshold: Number(process.env.JACCARD_THRESHOLD || 0.72),
   ttsVoice: process.env.TTS_VOICE || 'nova',
-  /** gpt-image / DALL·E are billable — disable to stay on free chat limits only */
+  /** GPT Image / fallback image models are metered — disable for no image API spend */
   illustrationsEnabled,
   illustrationModel: (process.env.ILLUSTRATION_MODEL || 'gpt-image-1-mini').trim(),
   illustrationQuality: (process.env.ILLUSTRATION_QUALITY || 'low').trim(),

@@ -202,6 +202,8 @@ That rules out pure serverless hosts (Vercel/Netlify functions) for the API. The
 
 4. Deploy. Open `https://<your-service>.onrender.com`.
 
+The included `render.yaml` defaults `ILLUSTRATIONS_ENABLED=false` so adding a Render service does not accidentally trigger image API usage. Turn it on only for the live judged demo or recorded walkthrough.
+
 **Free-tier notes**
 
 - The service **spins down** after idle time; the first request after sleep can take ~30–60s.
@@ -287,6 +289,13 @@ Submission checklist:
 - Project description: problem, solution, OpenAI usage, technical architecture, and impact
 - `/feedback` Codex Session ID from the main build session
 - Any sample data or credentials needed for judge testing
+
+Reference links:
+
+- [OpenAI Build Week overview](https://openai.devpost.com/)
+- [OpenAI Build Week rules](https://openai.devpost.com/rules)
+- [OpenAI Build Week resources](https://openai.devpost.com/resources)
+- [OpenAI image generation guide](https://developers.openai.com/api/docs/guides/image-generation)
 
 ---
 
