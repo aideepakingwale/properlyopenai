@@ -61,23 +61,35 @@ export default function Reading() {
 
   const onFinal = useCallback(
     async (msg) => {
-      setAssessment(msg);
-      setOwl(msg.message || owl);
-      setFeedback(msg);
+      const passed = Boolean(msg.passed ?? msg.validation?.passed);
+      const normalized = { ...msg, passed };
+      setAssessment(normalized);
+      if (msg.transcript) setManualTranscript(msg.transcript);
+      setFeedback(normalized);
+      const pct =
+        msg.validation?.displayScore ??
+        Math.round((msg.validation?.combined || 0) * 100);
+      const heard = msg.message
+        || (msg.transcript
+          ? `${passed ? 'Nice reading!' : 'Not quite yet.'} I heard: “${msg.transcript}” (~${pct}%).`
+          : 'I could not hear clear words — please try again.');
+      setOwl(heard);
       try {
         const res = await api.coach({
           childId: child.id,
-          context: story?.title,
-          issue: msg.passed ? null : 'jaccard_below_threshold',
+          // Never send Whisper text as the line to practise — only the real target
+          targetSentence: expectedForAssess,
+          context: `score ${pct}% · coverage ${Math.round((msg.validation?.coverage || 0) * 100)}% · scorer ${msg.validation?.scorer || 'unknown'}`,
+          issue: passed ? 'pass' : msg.validation?.reason || 'below_threshold',
           speak: true,
         });
-        setOwl(res.message);
+        setOwl(`${heard} ${res.message}`);
         if (res.audio?.url) new Audio(res.audio.url).play().catch(() => {});
       } catch {
         /* ignore */
       }
     },
-    [child?.id, story?.title, owl, setFeedback],
+    [child?.id, story?.title, expectedForAssess, setFeedback],
   );
 
   const onQuality = useCallback((msg) => {
@@ -158,9 +170,18 @@ export default function Reading() {
     });
   };
 
-  const hearStory = () => {
+  /**
+   * Story / page hear: phonemes → word → each sentence (last), by default.
+   * @param {'phonemes'|'words'|'full'} [hearMode]
+   */
+  const hearStory = (hearMode = 'phonemes') => {
     setSelectedSentence(-1);
-    setOwl('Follow along — I will read the whole page for you…');
+    const tips = {
+      phonemes: 'Phonemes first, then each word, then each sentence…',
+      words: 'Each word, then each sentence…',
+      full: 'Follow along — I will read the whole page…',
+    };
+    setOwl(tips[hearMode] || tips.phonemes);
     const allIndexes = sentences.flatMap((s) => s.wordIndexes);
     coach.pronounce({
       type: 'story',
@@ -168,6 +189,7 @@ export default function Reading() {
       phase: story.phase,
       wordIndexes: allIndexes,
       wordIndex: 0,
+      hearMode,
     });
   };
 
@@ -201,14 +223,23 @@ export default function Reading() {
   const finish = async (force = false) => {
     setCompleting(true);
     setError('');
-    const transcript =
-      manualTranscript.trim() ||
-      assessment?.transcript ||
-      (force ? expectedForAssess : expectedForAssess);
+    // Only the Whisper (or explicit typed demo) transcript — never the expected sentence
+    const transcript = String(assessment?.transcript || manualTranscript || '').trim();
+    if (!force && !transcript) {
+      setError('Read aloud first: Start → speak the sentence → Stop & assess.');
+      setOwl('I need to hear you read before we collect acorns.');
+      setCompleting(false);
+      return;
+    }
+    if (!force && assessment && assessment.passed === false) {
+      setError('That reading did not match closely enough yet. Try Stop & assess again.');
+      setOwl(assessment.message || 'Shall we try that sentence again?');
+      setCompleting(false);
+      return;
+    }
     try {
-      audio.sendInterim(transcript);
       const result = await api.completeSession(session.id, {
-        transcript,
+        transcript: force && !transcript ? '(demo complete)' : transcript,
         force,
         expectedText: expectedForAssess,
       });
@@ -256,22 +287,37 @@ export default function Reading() {
 
         <div className="listen-toolbar">
           <p className="listen-hint">
-            <strong>{isPractice ? 'Read & evaluate:' : 'Learn with Mrs Owl:'}</strong>{' '}
-            {isPractice
-              ? 'select a sentence, use Sounds / Words / Line to hear it, then Start reading aloud.'
-              : 'tap a letter or word, or use Sounds / Words / Line on a sentence below.'}
+            <strong>Hear order:</strong> each word’s phonemes play from the{' '}
+            <em>44 cached sounds</em> first, then the blended word, then the full sentence.
           </p>
           <div className="btn-row">
-            {!isPractice && (
+            <div className="hear-mode-row" role="group" aria-label="Hear whole page">
               <button
                 type="button"
-                className="btn secondary"
-                onClick={hearStory}
+                className="btn primary"
+                onClick={() => hearStory('phonemes')}
+                disabled={coach.speaking}
+                title="Phonemes, then words, then each sentence"
+              >
+                Hear story (sounds → words → sentences)
+              </button>
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => hearStory('words')}
                 disabled={coach.speaking}
               >
-                Hear whole story
+                Words → sentences
               </button>
-            )}
+              <button
+                type="button"
+                className="btn ghost"
+                onClick={() => hearStory('full')}
+                disabled={coach.speaking}
+              >
+                Full page only
+              </button>
+            </div>
             {activeSentence && (
               <div className="hear-mode-row" role="group" aria-label="Hear selected sentence">
                 <button
@@ -279,25 +325,25 @@ export default function Reading() {
                   className="btn secondary"
                   onClick={() => hearSentence(activeSentence, 'phonemes')}
                   disabled={coach.speaking}
-                  title="Sound out every phoneme, then blend"
+                  title="Phonemes, then each word, then this sentence"
                 >
-                  Hear sounds
+                  Hear line (sounds → word → sentence)
                 </button>
                 <button
                   type="button"
-                  className="btn secondary"
+                  className="btn ghost"
                   onClick={() => hearSentence(activeSentence, 'words')}
                   disabled={coach.speaking}
                 >
-                  Hear words
+                  Words → sentence
                 </button>
                 <button
                   type="button"
-                  className="btn secondary"
+                  className="btn ghost"
                   onClick={() => hearSentence(activeSentence, 'full')}
                   disabled={coach.speaking}
                 >
-                  Hear sentence
+                  Sentence only
                 </button>
               </div>
             )}
@@ -324,19 +370,19 @@ export default function Reading() {
                 <div className="sentence-hear-group">
                   <button
                     type="button"
-                    className="btn ghost sentence-hear"
+                    className="btn secondary sentence-hear"
                     onClick={() => hearSentence(s, 'phonemes')}
                     disabled={coach.speaking}
-                    title="Hear phonemes for this sentence"
+                    title="Phonemes → word → sentence"
                   >
-                    Sounds
+                    Hear
                   </button>
                   <button
                     type="button"
                     className="btn ghost sentence-hear"
                     onClick={() => hearSentence(s, 'words')}
                     disabled={coach.speaking}
-                    title="Hear each word"
+                    title="Words → sentence"
                   >
                     Words
                   </button>
@@ -345,7 +391,7 @@ export default function Reading() {
                     className="btn ghost sentence-hear"
                     onClick={() => hearSentence(s, 'full')}
                     disabled={coach.speaking}
-                    title="Hear the full sentence"
+                    title="Full sentence only"
                   >
                     Line
                   </button>
@@ -402,9 +448,9 @@ export default function Reading() {
               <div>
                 <strong>
                   {coach.lesson.hearMode === 'phonemes'
-                    ? 'Sounding out phonemes…'
+                    ? 'Order: phonemes → word → sentence'
                     : coach.lesson.hearMode === 'words'
-                      ? 'Hearing each word…'
+                      ? 'Order: word → sentence'
                       : 'Follow the glowing words'}
                 </strong>
                 <p className="ipa-inline">{coach.lesson.display.text}</p>
@@ -427,21 +473,33 @@ export default function Reading() {
             <strong>{activeSentence ? `Sentence ${activeSentence.index + 1}` : 'whole page'}</strong>
             <span className="assess-quote"> “{expectedForAssess}”</span>
           </p>
+          <p className="listen-hint">
+            <strong>Real scoring:</strong> Start → read the sentence aloud → Stop &amp; assess. Your
+            voice is sent to the server, transcribed, and compared to the words/phonemes. Empty or
+            random speech will not pass.
+          </p>
           <div className="level-meter" aria-hidden="true">
             <div className="level-fill" style={{ width: `${Math.min(100, levelPct(audio.level))}%` }} />
           </div>
           <p className="status-line">
             Mic: {audio.status}
             {audio.connected ? '' : ' (connecting…)'}
+            {assessment?.path ? ` · path: ${assessment.path}` : ''}
           </p>
           <div className="btn-row">
             {!audio.recording ? (
               <button
                 className="btn primary"
                 onClick={() => {
+                  // Always score a single selected sentence (not the whole page)
                   if (selectedSentence < 0 && sentences.length) {
                     setSelectedSentence(0);
+                    audio.setExpectedText(sentences[0].text);
+                  } else {
+                    audio.setExpectedText(expectedForAssess);
                   }
+                  setAssessment(null);
+                  setError('');
                   audio.startRecording();
                 }}
               >
@@ -450,7 +508,13 @@ export default function Reading() {
             ) : (
               <button
                 className="btn danger"
-                onClick={() => audio.stopRecording(manualTranscript)}
+                onClick={() =>
+                  audio.stopRecording({
+                    typedTranscript: '',
+                    allowTypedFallback: false,
+                    expectedText: expectedForAssess,
+                  })
+                }
               >
                 Stop & assess
               </button>
@@ -462,21 +526,69 @@ export default function Reading() {
             )}
           </div>
 
-          <label className="sim-label">
-            Practice / fallback transcript (for demo without clear mic)
-            <textarea
-              rows={3}
-              value={manualTranscript}
-              onChange={(e) => {
-                setManualTranscript(e.target.value);
-                audio.sendInterim(e.target.value);
-              }}
-              placeholder={expectedForAssess}
-            />
-          </label>
+          {assessment?.transcript != null && (
+            <div className="heard-line">
+              <p>
+                <strong>Target:</strong> {expectedForAssess}
+              </p>
+              {assessment.whisperTranscript &&
+                assessment.whisperTranscript !== assessment.transcript && (
+                  <p>
+                    <strong>Whisper raw:</strong> {assessment.whisperTranscript}
+                  </p>
+                )}
+              <p>
+                <strong>Heard:</strong> {assessment.transcript || '(no words recognised)'}
+              </p>
+              {assessment.validation?.targetText &&
+                assessment.validation.targetText !== expectedForAssess && (
+                  <p>
+                    <strong>Scored against:</strong> {assessment.validation.targetText}
+                  </p>
+                )}
+              {assessment.validation?.scorer && (
+                <p className="scorer-tag">Scorer: {assessment.validation.scorer}</p>
+              )}
+            </div>
+          )}
+
+          <details className="demo-transcript">
+            <summary>Demo only — typed transcript fallback</summary>
+            <label className="sim-label">
+              Use only if the mic/ASR is unavailable. This is not a real pronunciation score.
+              <textarea
+                rows={2}
+                value={manualTranscript}
+                onChange={(e) => setManualTranscript(e.target.value)}
+                placeholder="Type what the child said…"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() =>
+                audio.stopRecording({
+                  typedTranscript: manualTranscript,
+                  allowTypedFallback: true,
+                })
+              }
+              disabled={!manualTranscript.trim() || audio.recording}
+            >
+              Score typed demo transcript
+            </button>
+          </details>
 
           <div className="btn-row">
-            <button className="btn secondary" onClick={() => finish(false)} disabled={completing}>
+            <button
+              className="btn secondary"
+              onClick={() => finish(false)}
+              disabled={completing || !assessment?.passed}
+              title={
+                assessment?.passed
+                  ? 'Collect acorns for a passing reading'
+                  : 'Pass Stop & assess first'
+              }
+            >
               {completing ? 'Checking…' : 'Finish & collect acorns'}
             </button>
             <button className="btn ghost" onClick={() => finish(true)} disabled={completing}>
@@ -485,11 +597,37 @@ export default function Reading() {
           </div>
           {error && <p className="error">{error}</p>}
           {assessment?.validation && (
-            <p className="score">
-              Jaccard words {(assessment.validation.jaccardWords * 100).toFixed(0)}% · phonemes{' '}
-              {(assessment.validation.jaccardPhonemes * 100).toFixed(0)}% · combined{' '}
-              {(assessment.validation.combined * 100).toFixed(0)}%
-            </p>
+            <div className={`score-panel ${assessment.passed ? 'score-pass' : 'score-fail'}`}>
+              <p className="score">
+                Overall{' '}
+                {assessment.validation.displayScore ??
+                  Math.round((assessment.validation.combined || 0) * 100)}
+                %
+                {assessment.passed ? ' · PASS' : ' · TRY AGAIN'}
+                {assessment.validation.scorer ? ` · ${assessment.validation.scorer}` : ''}
+              </p>
+              {Array.isArray(assessment.validation.wordScores) &&
+                assessment.validation.wordScores.length > 0 && (
+                  <ul className="word-score-list" aria-label="Per-word phonics scores">
+                    {assessment.validation.wordScores.map((w, i) => (
+                      <li key={`${w.expected}-${i}`} className={`word-score word-score-${w.status}`}>
+                        <span className="word-score-head">
+                          <strong>{w.expected}</strong>
+                          <span className="word-score-pct">{Math.round((w.score || 0) * 100)}%</span>
+                          <span className="word-score-label">{w.label}</span>
+                        </span>
+                        <span className="word-score-ipa">
+                          {w.expectedPhonemes?.length
+                            ? `/${w.expectedPhonemes.join('/ /')}/`
+                            : ''}
+                          {w.heard && w.heard !== w.expected ? ` · heard “${w.heard}”` : ''}
+                        </span>
+                        {w.tip && <span className="word-score-tip">{w.tip}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
           )}
         </div>
       </div>

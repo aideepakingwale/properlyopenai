@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api } from '../api';
+import { buildPronunciationLesson } from '@shared/phonicsEngine.js';
 import {
   playCachedPhoneme,
   stopPhonemeAudio,
   preloadAllPhonemes,
+  isPhonemeCacheReady,
 } from '../audio/phonemeCache.js';
 
 /**
  * Mrs Owl pronunciation coach.
- * Pure phonemes use Web Audio (real recordings) — never speech synthesis letter names.
- * Tips, whole words, and sentences may use speech synthesis.
+ * Sentence/story/word scaffolding is built on the client so phoneme steps
+ * always use the 44 cached recordings — never letter-name TTS.
  */
 export function usePronunciationCoach() {
   const [speaking, setSpeaking] = useState(false);
@@ -57,7 +58,6 @@ export function usePronunciationCoach() {
     );
   };
 
-  /** Speech only for tips / whole words — never for phoneme IPA */
   const playBrowserSpeech = (text, rate = 0.95) =>
     new Promise((resolve) => {
       const cleaned = String(text || '').trim();
@@ -65,8 +65,8 @@ export function usePronunciationCoach() {
         resolve();
         return;
       }
-      // Block lone letters — engines say “ess/tee/ay”
-      if (/^[a-z]$/i.test(cleaned)) {
+      // Block lone consonant letter-names (“ess/tee”) — allow word forms a / I
+      if (/^[a-z]$/i.test(cleaned) && !/^[ai]$/i.test(cleaned)) {
         resolve();
         return;
       }
@@ -89,14 +89,11 @@ export function usePronunciationCoach() {
       }
     });
 
-  const playAudioUrl = (url) =>
-    new Promise((resolve) => {
-      const audio = new Audio(url);
-      audioRef.current = audio;
-      audio.onended = () => resolve();
-      audio.onerror = () => resolve();
-      audio.play().catch(() => resolve());
-    });
+  const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const isPhonemeStep = (step) =>
+    Boolean(step?.ipa) &&
+    (step.pure === true || step.kind === 'tile' || step.kind === 'phoneme');
 
   const resolveWordIndex = (target, step, baseWordIndex) => {
     if (typeof step.wordOffset === 'number') {
@@ -112,24 +109,20 @@ export function usePronunciationCoach() {
       setSpeaking(true);
 
       try {
-        const hearMode = target.hearMode || null;
-        const usesStepPlayback =
-          target.type === 'phoneme' ||
-          target.type === 'word' ||
-          (target.type === 'sentence' && (hearMode === 'phonemes' || hearMode === 'words'));
+        const hearMode = target.hearMode || 'phonemes';
 
-        const guide = await api.pronounce({
+        // Build steps locally — guarantees phoneme tiles from the 44-sound bank
+        const guide = buildPronunciationLesson({
           type: target.type,
           value: target.value,
           text: target.text || target.value,
           ipa: target.ipa,
           grapheme: target.grapheme,
           phase: target.phase,
-          hearMode: hearMode || undefined,
-          // Server TTS only for unbroken story/full-sentence play
-          speak: target.type === 'story' || (target.type === 'sentence' && hearMode === 'full'),
+          hearMode,
         });
         if (cancelledRef.current) return;
+
         setLesson(guide);
         setMessage(guide.message);
 
@@ -142,55 +135,84 @@ export function usePronunciationCoach() {
         const sentenceIndex =
           typeof target.sentenceIndex === 'number' ? target.sentenceIndex : -1;
 
-        if (usesStepPlayback && guide.steps?.length) {
-          await preloadAllPhonemes();
-          for (const step of guide.steps) {
+        const steps = guide.steps || [];
+        const hasCachedPhonemes = steps.some(isPhonemeStep);
+        const useScaffold =
+          target.type === 'phoneme' ||
+          target.type === 'word' ||
+          ((target.type === 'sentence' || target.type === 'story') &&
+            hearMode !== 'full');
+
+        if (useScaffold && steps.length) {
+          if (hasCachedPhonemes || target.type === 'phoneme' || target.type === 'word') {
+            await preloadAllPhonemes();
+          }
+
+          for (const step of steps) {
             if (cancelledRef.current) break;
             const wi = resolveWordIndex(target, step, baseWordIndex);
+            const stepSentenceIndex =
+              typeof step.sentenceIndex === 'number' ? step.sentenceIndex : sentenceIndex;
 
-            if (step.pure && step.ipa) {
+            if (isPhonemeStep(step)) {
               setActive({
                 wordIndex: wi,
                 tileIndex: step.tileIndex ?? 0,
-                sentenceIndex,
-                mode: hearMode || mode,
+                sentenceIndex: stepSentenceIndex,
+                mode: hearMode,
               });
+              setMessage(`Sound: /${step.ipa}/`);
               await playCachedPhoneme(step.ipa);
-            } else if (step.kind === 'tip' && step.speak) {
+              await pause(90);
+              continue;
+            }
+
+            if (step.kind === 'tip' && step.speak) {
               setActive({
                 wordIndex: wi,
                 tileIndex: step.tileIndex ?? 0,
-                sentenceIndex,
-                mode: hearMode || mode,
+                sentenceIndex: stepSentenceIndex,
+                mode: hearMode,
               });
               await playBrowserSpeech(step.speak, 0.95);
-            } else if (step.kind === 'word') {
+              continue;
+            }
+
+            if (step.kind === 'word' && step.speak) {
               setActive({
                 wordIndex: wi,
                 tileIndex: -1,
-                sentenceIndex,
-                mode: hearMode || mode,
+                sentenceIndex: stepSentenceIndex,
+                mode: hearMode,
               });
-              await playBrowserSpeech(step.speak || target.value, 0.9);
-            } else if (step.kind === 'sentence' && step.speak) {
+              setMessage(`Word: ${step.speak}`);
+              await playBrowserSpeech(step.speak, 0.88);
+              await pause(120);
+              continue;
+            }
+
+            if (step.kind === 'sentence' && step.speak) {
               setActive({
                 wordIndex: -1,
                 tileIndex: -1,
-                sentenceIndex,
-                mode: hearMode || mode,
+                sentenceIndex: stepSentenceIndex,
+                mode: hearMode,
               });
-              await playBrowserSpeech(step.speak, 0.92);
+              setMessage(`Sentence: ${step.speak}`);
+              await playBrowserSpeech(step.speak, 0.9);
+              await pause(160);
             }
           }
+
           if (!cancelledRef.current) {
             setSpeaking(false);
             setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
+            setMessage(guide.message);
           }
           return;
         }
 
-        // Story / full sentence: highlight words while speaking the line
-        const steps = guide.steps || [];
+        // Full-page only: one continuous read with word highlights
         let t = 0;
         steps.forEach((step) => {
           const id = setTimeout(() => {
@@ -209,12 +231,7 @@ export function usePronunciationCoach() {
           setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
         }, t + 80);
         timersRef.current.push(doneId);
-
-        if (guide.audio?.url) {
-          await playAudioUrl(guide.audio.url);
-        } else {
-          await playBrowserSpeech(guide.speakText || target.text || '', 0.92);
-        }
+        await playBrowserSpeech(guide.speakText || target.text || '', 0.92);
       } catch (err) {
         setMessage(err.message || 'Mrs Owl could not say that just now. Try again!');
         setSpeaking(false);
@@ -229,6 +246,7 @@ export function usePronunciationCoach() {
     message,
     active,
     lesson,
+    cacheReady: isPhonemeCacheReady(),
     pronounce,
     stop,
   };

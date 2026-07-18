@@ -42,6 +42,7 @@ router.post('/practice', async (req, res) => {
       title: story.title,
       theme: story.theme,
       text: story.text,
+      phase: ph,
     });
     story = storiesRepo.updatePaths(story.id, { illustrationUrl: illustration.url });
 
@@ -56,6 +57,7 @@ router.post('/practice', async (req, res) => {
       highlight: highlightText(story.text, story.phase),
       sentences: story.metadata?.sentences || getPracticeSentences(ph),
       kind: 'practice',
+      illustrationCached: Boolean(illustration.cached),
     });
   } catch (err) {
     console.error(err);
@@ -81,6 +83,7 @@ router.post('/generate', async (req, res) => {
       title: story.title,
       theme: story.theme,
       text: story.text,
+      phase: ph,
     });
     const withImage = storiesRepo.updatePaths(story.id, {
       illustrationUrl: illustration.url,
@@ -95,6 +98,7 @@ router.post('/generate', async (req, res) => {
     res.status(201).json({
       ...story,
       highlight: highlightText(story.text, story.phase),
+      illustrationCached: Boolean(illustration.cached),
     });
   } catch (err) {
     console.error(err);

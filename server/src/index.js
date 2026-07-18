@@ -44,14 +44,34 @@ app.use(
   }),
 );
 app.use(express.json({ limit: '2mb' }));
-app.use('/storage', express.static(config.storageDir));
+app.use(
+  '/storage',
+  express.static(config.storageDir, {
+    maxAge: '30d',
+    immutable: true,
+    setHeaders(res, filePath) {
+      if (/\.(png|jpe?g|webp|svg)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+      }
+    },
+  }),
+);
 
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     name: 'Properly API',
     mockMode: config.mockMode,
+    hasOpenAIKey: Boolean(config.openaiApiKey),
+    chatModel: config.chatModel,
+    illustrations: !config.illustrationsEnabled
+      ? 'disabled'
+      : config.openaiApiKey
+        ? 'openai-image-cached'
+        : 'svg-placeholder',
+    illustrationModel: config.illustrationModel,
     jaccardThreshold: config.jaccardThreshold,
+    readingScorer: 'v6-word-phonics',
   });
 });
 

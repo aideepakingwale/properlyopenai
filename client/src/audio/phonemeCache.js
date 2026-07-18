@@ -101,6 +101,9 @@ export function stopPhonemeAudio() {
 export async function playCachedPhoneme(ipa) {
   await preloadAllPhonemes();
   const audioCtx = getAudioContext();
+  if (audioCtx.state === 'suspended') {
+    await audioCtx.resume().catch(() => {});
+  }
   stopPhonemeAudio();
 
   let buffer = bufferCache.get(ipa);
@@ -109,18 +112,32 @@ export async function playCachedPhoneme(ipa) {
     bufferCache.set(ipa, buffer);
   }
 
+  // Guard: silence / empty buffer should not resolve instantly as “played”
+  const duration = buffer?.duration || 0;
+  if (!buffer || duration < 0.04) {
+    console.warn(`Phoneme /${ipa}/ missing or too short in cache`);
+    await new Promise((r) => setTimeout(r, 180));
+    return;
+  }
+
   return new Promise((resolve) => {
     const src = audioCtx.createBufferSource();
     src.buffer = buffer;
     const gain = audioCtx.createGain();
-    gain.gain.value = 1;
+    gain.gain.value = 1.15;
     src.connect(gain);
     gain.connect(audioCtx.destination);
     playingSources.push(src);
-    src.onended = () => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
       playingSources = playingSources.filter((s) => s !== src);
       resolve();
     };
+    src.onended = finish;
+    // Fallback if onended never fires
+    setTimeout(finish, Math.min(4000, duration * 1000 + 80));
     src.start(0);
   });
 }

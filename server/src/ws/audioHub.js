@@ -2,16 +2,17 @@ import { WebSocketServer } from 'ws';
 import { sessionsRepo, storiesRepo } from '../db/repositories.js';
 import {
   assessHeuristic,
-  assessWithWhisper,
+  assessRecording,
   persistAssessment,
+  MIN_AUDIO_BYTES,
 } from '../services/assessmentService.js';
+import { hasOpenAIKey } from '../services/openaiClient.js';
 import { config } from '../config.js';
 
 /**
  * WebSocket audio hub:
- * - client sends JSON control + binary audio chunks
- * - dual-path assessment (heuristic interim + Whisper on end)
- * - Jaccard gate feedback + heartbeat / recovery
+ * - client streams binary mic audio
+ * - on end: Whisper transcription + pronunciation score vs expected text
  */
 export function attachAudioHub(server) {
   const wss = new WebSocketServer({ server, path: '/ws/audio' });
@@ -24,6 +25,7 @@ export function attachAudioHub(server) {
       lastPing: Date.now(),
       degraded: false,
       interim: '',
+      peakLevel: 0,
     };
 
     const send = (type, payload = {}) => {
@@ -34,15 +36,17 @@ export function attachAudioHub(server) {
 
     send('ready', {
       mockMode: config.mockMode,
+      hasOpenAIKey: hasOpenAIKey(),
       jaccardThreshold: config.jaccardThreshold,
-      message: 'Audio channel ready',
+      minAudioBytes: MIN_AUDIO_BYTES,
+      message: 'Audio channel ready — read aloud for scoring',
     });
 
     const heartbeat = setInterval(() => {
       if (Date.now() - state.lastPing > 25000) {
         state.degraded = true;
         send('degraded', {
-          message: 'Connection looks unstable. We will use Whisper at the end.',
+          message: 'Connection looks unstable. Keep reading — we will score at the end.',
         });
       }
       send('ping', { t: Date.now() });
@@ -53,7 +57,11 @@ export function attachAudioHub(server) {
         if (isBinary) {
           state.chunks.push(Buffer.from(data));
           if (state.chunks.length % 8 === 0) {
-            send('chunk_ack', { count: state.chunks.length, degraded: state.degraded });
+            send('chunk_ack', {
+              count: state.chunks.length,
+              bytes: state.chunks.reduce((n, b) => n + b.length, 0),
+              degraded: state.degraded,
+            });
           }
           return;
         }
@@ -76,13 +84,13 @@ export function attachAudioHub(server) {
           }
           const story = storiesRepo.get(session.storyId);
           state.sessionId = session.id;
-          // Optional expectedText: assess one sentence instead of the whole story
           state.expectedText =
             (typeof msg.expectedText === 'string' && msg.expectedText.trim()) ||
             story?.text ||
             '';
           state.chunks = [];
           state.interim = '';
+          state.peakLevel = 0;
           send('session_bound', {
             sessionId: session.id,
             expectedChars: state.expectedText.length,
@@ -103,26 +111,30 @@ export function attachAudioHub(server) {
         }
 
         if (msg.type === 'interim') {
+          // Typed interim is practice-only feedback — not a substitute for mic scoring
           state.interim = msg.transcript || '';
+          if (!state.interim.trim()) return;
           const result = assessHeuristic(state.expectedText, state.interim);
           send('assessment', {
             path: 'heuristic',
             validation: result.validation,
             transcript: state.interim,
             encourage: result.validation.passed
-              ? 'Sounding great — keep going!'
-              : 'Nice try — match more of the story words.',
+              ? 'That typed line looks close — now read it aloud for a real score.'
+              : 'Keep practising the missing words, then read aloud.',
           });
           return;
         }
 
         if (msg.type === 'quality') {
+          const level = msg.level ?? 0;
+          if (level > state.peakLevel) state.peakLevel = level;
           send('quality_ack', {
-            level: msg.level ?? 0,
+            level,
             silent: Boolean(msg.silent),
             advice: msg.silent
               ? 'I can barely hear you — a little louder please!'
-              : msg.level > 0.85
+              : level > 0.85
                 ? 'A tiny bit softer would help.'
                 : 'Audio level looks good.',
           });
@@ -131,35 +143,57 @@ export function attachAudioHub(server) {
 
         if (msg.type === 'end') {
           const mime = msg.mime || 'audio/webm';
-          const audioBuffer = Buffer.concat(state.chunks);
-          let result;
-          if (audioBuffer.length > 0 && !config.mockMode) {
-            result = await assessWithWhisper(state.expectedText, audioBuffer, mime);
-          } else if (state.interim) {
-            result = assessHeuristic(state.expectedText, state.interim);
-            result.path = state.degraded ? 'heuristic-degraded' : 'heuristic';
-          } else {
-            // Mock end: use client final transcript or partial story words
-            const finalTranscript = msg.transcript || state.interim || '';
-            result = await assessWithWhisper(state.expectedText, Buffer.alloc(0), mime);
-            if (finalTranscript) {
-              result = assessHeuristic(state.expectedText, finalTranscript);
-              result.path = 'client-final';
-            }
+          // Client may send the exact target line (selected sentence) with the end event
+          if (typeof msg.expectedText === 'string' && msg.expectedText.trim()) {
+            state.expectedText = msg.expectedText.trim();
           }
+          // Allow a short wait for late binary chunks after recorder.stop
+          await new Promise((r) => setTimeout(r, 180));
+          const audioBuffer = Buffer.concat(state.chunks);
+          const typed = String(msg.transcript || state.interim || '').trim();
+          const allowTyped = Boolean(msg.allowTypedFallback) && typed.length > 0;
+
+          send('assessing', {
+            message: 'Listening to your reading…',
+            audioBytes: audioBuffer.length,
+            expectedPreview: state.expectedText.slice(0, 80),
+          });
+
+          const result = await assessRecording({
+            expectedText: state.expectedText,
+            audioBuffer,
+            mime,
+            typedTranscript: typed,
+            allowTypedFallback: allowTyped,
+          });
 
           if (state.sessionId) {
             persistAssessment(state.sessionId, result);
           }
 
-          const passed = result.validation.passed;
+          const passed = Boolean(result.validation?.passed);
+          const v = result.validation || {};
           send('final_assessment', {
             ...result,
             passed,
             action: passed ? 'complete_allowed' : 'retry',
-            message: passed
-              ? 'Wonderful reading! You may collect your acorns.'
-              : 'That did not quite match the page. Shall we try again?',
+            message:
+              result.message ||
+              (passed
+                ? 'Wonderful reading! You may collect your acorns.'
+                : 'That did not quite match. Listen again, then read the sentence clearly.'),
+            scoreSummary: {
+              combined: v.combined,
+              displayScore: v.displayScore,
+              coverage: v.coverage,
+              sequence: v.sequence,
+              jaccardWords: v.jaccardWords,
+              jaccardPhonemes: v.jaccardPhonemes,
+              missingWords: v.missingWords || [],
+              wordScores: v.wordScores || [],
+              reason: v.reason,
+              scorer: v.scorer,
+            },
           });
           state.chunks = [];
           return;
@@ -168,6 +202,7 @@ export function attachAudioHub(server) {
         if (msg.type === 'retry') {
           state.chunks = [];
           state.interim = '';
+          state.peakLevel = 0;
           send('retry_ack', { message: 'Ready when you are — take a breath and begin.' });
         }
       } catch (err) {

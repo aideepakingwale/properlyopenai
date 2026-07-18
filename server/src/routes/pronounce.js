@@ -24,6 +24,9 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'sentence/story requires text' });
     }
 
+    const hearMode = body.hearMode || 'phonemes';
+    // Only synthesize unbroken full-page TTS when explicitly requested
+    const wantSpeak = body.speak === true || hearMode === 'full';
     const guide = await createPronunciationGuide(
       {
         type,
@@ -32,9 +35,9 @@ router.post('/', async (req, res) => {
         ipa: body.ipa,
         grapheme: body.grapheme,
         phase: body.phase,
-        hearMode: body.hearMode,
+        hearMode,
       },
-      { speak: body.speak !== false },
+      { speak: wantSpeak },
     );
     res.json(guide);
   } catch (err) {

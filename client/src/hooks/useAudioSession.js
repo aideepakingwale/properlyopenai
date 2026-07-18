@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { wsAudioUrl } from '../api';
 
 /**
- * Browser mic capture + WebSocket streaming with quality checks and reconnect.
+ * Browser mic capture + WebSocket streaming.
+ * On stop: waits for the final audio blob, then asks the server to Whisper-score it.
  */
 export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality }) {
   const wsRef = useRef(null);
@@ -11,6 +12,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   const analyserRef = useRef(null);
   const rafRef = useRef(null);
   const expectedTextRef = useRef('');
+  const chunksRef = useRef([]);
+  const mimeRef = useRef('audio/webm');
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
   const [level, setLevel] = useState(0);
@@ -56,9 +59,20 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
           return;
         }
         if (msg.type === 'assessment') onAssessment?.(msg);
-        if (msg.type === 'final_assessment') onFinal?.(msg);
+        if (msg.type === 'final_assessment') {
+          setStatus(msg.passed ? 'scored-pass' : 'scored-retry');
+          onFinal?.(msg);
+        }
+        if (msg.type === 'assessing') {
+          setStatus('processing');
+          if (msg.message) setLastMessage(msg.message);
+        }
         if (msg.type === 'quality_ack') onQuality?.(msg);
-        if (msg.message) setLastMessage(msg.message);
+        if (msg.type === 'error') {
+          setStatus('error');
+          setLastMessage(msg.message || 'Audio error');
+        }
+        if (msg.message && msg.type !== 'ping') setLastMessage(msg.message);
         if (msg.type === 'degraded') setStatus('degraded');
         if (msg.type === 'recovered') setStatus('connected');
       } catch {
@@ -72,7 +86,11 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     return () => {
       cleanupLoop();
       wsRef.current?.close();
-      recorderRef.current?.stop();
+      try {
+        recorderRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
       mediaRef.current?.getTracks().forEach((t) => t.stop());
     };
   }, [connect]);
@@ -89,21 +107,24 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     }
   }, [connected, sessionId]);
 
-  /** Focus assessment on one sentence (or restore full story with ''). */
-  const setExpectedText = useCallback((text) => {
-    expectedTextRef.current = String(text || '').trim();
-    if (wsRef.current?.readyState === 1 && sessionId) {
-      if (expectedTextRef.current) {
-        wsRef.current.send(
-          JSON.stringify({ type: 'set_expected', expectedText: expectedTextRef.current }),
-        );
-      } else {
-        wsRef.current.send(JSON.stringify({ type: 'start', sessionId }));
+  const setExpectedText = useCallback(
+    (text) => {
+      expectedTextRef.current = String(text || '').trim();
+      if (wsRef.current?.readyState === 1 && sessionId) {
+        if (expectedTextRef.current) {
+          wsRef.current.send(
+            JSON.stringify({ type: 'set_expected', expectedText: expectedTextRef.current }),
+          );
+        } else {
+          wsRef.current.send(JSON.stringify({ type: 'start', sessionId }));
+        }
       }
-    }
-  }, [sessionId]);
+    },
+    [sessionId],
+  );
 
   const startRecording = async () => {
+    chunksRef.current = [];
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true },
     });
@@ -137,38 +158,95 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : 'audio/webm';
+    mimeRef.current = mime;
     const recorder = new MediaRecorder(stream, { mimeType: mime });
     recorderRef.current = recorder;
 
     recorder.ondataavailable = async (e) => {
-      if (e.data.size && wsRef.current?.readyState === 1) {
+      if (!e.data?.size) return;
+      chunksRef.current.push(e.data);
+      if (wsRef.current?.readyState === 1) {
         const buf = await e.data.arrayBuffer();
         wsRef.current.send(buf);
       }
     };
+
+    // Clear prior audio on server for a fresh take
+    if (wsRef.current?.readyState === 1 && sessionId) {
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'start',
+          sessionId,
+          expectedText: expectedTextRef.current || undefined,
+        }),
+      );
+    }
 
     recorder.start(250);
     setRecording(true);
     setStatus('recording');
   };
 
-  const stopRecording = (transcript = '') => {
+  /**
+   * Stop mic, flush final chunk to the socket, then request Whisper scoring.
+   * @param {{ typedTranscript?: string, allowTypedFallback?: boolean }} [opts]
+   */
+  const stopRecording = (opts = {}) => {
+    const typedTranscript =
+      typeof opts === 'string' ? opts : opts.typedTranscript || '';
+    const allowTypedFallback =
+      typeof opts === 'object' ? Boolean(opts.allowTypedFallback) : false;
+    const expectedText =
+      typeof opts === 'object' && opts.expectedText != null
+        ? String(opts.expectedText).trim()
+        : expectedTextRef.current;
+
+    if (expectedText) expectedTextRef.current = expectedText;
+
     cleanupLoop();
     const recorder = recorderRef.current;
-    if (recorder && recorder.state !== 'inactive') {
-      recorder.stop();
-    }
-    mediaRef.current?.getTracks().forEach((t) => t.stop());
     setRecording(false);
     setStatus('processing');
-    if (wsRef.current?.readyState === 1) {
-      wsRef.current.send(
-        JSON.stringify({
-          type: 'end',
-          mime: 'audio/webm',
-          transcript,
-        }),
+
+    const finish = async () => {
+      // Give the last binary frame a moment to arrive on the server
+      await new Promise((r) => setTimeout(r, 250));
+      if (wsRef.current?.readyState === 1) {
+        // Re-bind expected line, then score — avoids stale full-story targets
+        if (expectedText) {
+          wsRef.current.send(
+            JSON.stringify({ type: 'set_expected', expectedText }),
+          );
+        }
+        wsRef.current.send(
+          JSON.stringify({
+            type: 'end',
+            mime: mimeRef.current || 'audio/webm',
+            transcript: typedTranscript,
+            allowTypedFallback,
+            expectedText: expectedText || undefined,
+          }),
+        );
+      }
+      mediaRef.current?.getTracks().forEach((t) => t.stop());
+    };
+
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.addEventListener(
+        'stop',
+        () => {
+          finish();
+        },
+        { once: true },
       );
+      try {
+        if (recorder.state === 'recording') recorder.requestData();
+      } catch {
+        /* ignore */
+      }
+      recorder.stop();
+    } else {
+      finish();
     }
   };
 

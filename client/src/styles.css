@@ -351,12 +351,13 @@ textarea {
 }
 
 .story-art {
-  width: 120px;
-  height: 120px;
+  width: min(220px, 42vw);
+  height: min(220px, 42vw);
   object-fit: cover;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 3px solid #fff;
   box-shadow: 0 8px 24px rgba(27, 67, 50, 0.12);
+  background: #fff6d8;
 }
 
 .grapheme-text {
@@ -504,6 +505,116 @@ textarea {
   margin-top: 0.25rem;
   font-weight: 600;
   color: var(--ink-soft);
+}
+
+.heard-line {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.8rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  border: 1px solid rgba(27, 67, 50, 0.12);
+}
+
+.heard-line p {
+  margin: 0.25rem 0;
+}
+
+.scorer-tag {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.demo-transcript {
+  margin: 0.75rem 0 1rem;
+  font-size: 0.9rem;
+}
+
+.demo-transcript summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
+.score-panel {
+  margin-top: 0.75rem;
+}
+
+.score-pass .score {
+  color: var(--leaf-deep);
+  font-weight: 800;
+}
+
+.score-fail .score {
+  color: #b71c1c;
+  font-weight: 800;
+}
+
+.word-score-list {
+  list-style: none;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.word-score {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(27, 67, 50, 0.12);
+}
+
+.word-score-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.word-score-pct {
+  font-weight: 800;
+}
+
+.word-score-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+}
+
+.word-score-ipa {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.word-score-tip {
+  font-size: 0.8rem;
+  color: var(--bark);
+}
+
+.word-score-exact {
+  border-color: rgba(45, 106, 79, 0.35);
+  background: rgba(216, 243, 220, 0.55);
+}
+
+.word-score-close {
+  border-color: rgba(244, 162, 97, 0.45);
+  background: rgba(255, 243, 224, 0.7);
+}
+
+.word-score-partial {
+  border-color: rgba(244, 162, 97, 0.55);
+}
+
+.word-score-wrong,
+.word-score-missing {
+  border-color: rgba(183, 28, 28, 0.35);
+  background: rgba(255, 235, 238, 0.65);
 }
 
 .sentence-chip {

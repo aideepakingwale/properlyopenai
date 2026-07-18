@@ -24,8 +24,8 @@ export function speakText(text, rate = 0.9) {
       resolve();
       return;
     }
-    // Block lone letters — engines say “ess/tee/ay”
-    if (/^[a-z]$/i.test(cleaned)) {
+    // Block lone consonant letter-names — allow word forms a / I
+    if (/^[a-z]$/i.test(cleaned) && !/^[ai]$/i.test(cleaned)) {
       resolve();
       return;
     }

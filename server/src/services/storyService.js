@@ -4,6 +4,7 @@ import {
   highlightText,
 } from '../../../shared/phonicsEngine.js';
 import { buildPracticePack } from '../../../shared/practiceSentences.js';
+import { config } from '../config.js';
 import { getOpenAI, isMockMode } from './openaiClient.js';
 import { storiesRepo } from '../db/repositories.js';
 
@@ -66,7 +67,7 @@ Respond as JSON only: {"title":"...","text":"..."}`;
 async function generateWithOpenAI(phase, theme, interests) {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
+    model: config.chatModel,
     temperature: 0.4,
     response_format: { type: 'json_object' },
     messages: [
@@ -99,7 +100,7 @@ export async function generateStory({ phase = 2, theme = '', interests = [], chi
   } else {
     try {
       draft = await generateWithOpenAI(phase, theme, interests);
-      source = 'gpt-4o';
+      source = config.chatModel;
       let bad = findDisallowedWords(draft.text, phase);
       if (bad.length > 3) {
         // Retry once with stricter reminder
@@ -164,40 +165,57 @@ export function createPracticeStory({ phase = 2, theme = 'practice', childId = n
   });
 }
 
-export async function coachMessage({ childName, phase, context, issue }) {
+/**
+ * @param {{ childName?: string, phase?: number, context?: string, issue?: string, targetSentence?: string }} opts
+ */
+export async function coachMessage({
+  childName,
+  phase,
+  context,
+  issue,
+  targetSentence = '',
+}) {
+  const passed = !issue || issue === 'none' || issue === 'pass';
+  const practiceLine = String(targetSentence || '').trim();
+  const name = childName || 'little reader';
+
+  // Deterministic lines — never rehearse Whisper's mis-hearing
+  const localMessage = passed
+    ? `Well done, ${name}! That matched the words — Mrs Owl is proud of you.`
+    : practiceLine
+      ? `Good try, ${name}! Let's practise the real line: "${practiceLine}". Read it slowly once more.`
+      : `Good try, ${name}! Listen to the sentence again, then read it slowly.`;
+
   if (isMockMode()) {
-    const lines = [
-      `Well done, ${childName || 'little reader'}! Mrs Owl is so proud of you.`,
-      `Let's try that line again, slowly. Sound out each bit — you've got this!`,
-      `Lovely reading! Take a breath and try the next sentence when you're ready.`,
-    ];
-    return {
-      message: issue
-        ? `Hmm, that didn't quite match the words. ${lines[1]}`
-        : lines[0],
-      voiceHint: 'warm',
-    };
+    return { message: localMessage, voiceHint: 'warm' };
   }
 
   const openai = getOpenAI();
-  const completion = await openai.chat.completions.create({
-    model: 'gpt-4o',
-    temperature: 0.7,
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You are Mrs Owl, a warm UK phonics tutor for ages 4–7. Short sentences, encouraging, never shaming. Max 2 short sentences. Use British English.',
-      },
-      {
-        role: 'user',
-        content: `Child: ${childName || 'friend'}, Phase ${phase}. Context: ${context || 'reading practice'}. Issue: ${issue || 'none — celebrate effort'}.`,
-      },
-    ],
-  });
+  if (!openai) {
+    return { message: localMessage, voiceHint: 'warm' };
+  }
 
-  return {
-    message: completion.choices[0]?.message?.content?.trim() || 'Well done!',
-    voiceHint: 'warm',
-  };
+  try {
+    const completion = await openai.chat.completions.create({
+      model: config.chatModel,
+      temperature: 0.4,
+      messages: [
+        {
+          role: 'system',
+          content: `You are Mrs Owl, a warm UK phonics tutor for ages 4–7. Max 2 short sentences. British English.
+If PASSED: celebrate.
+If FAILED: ask them to try again. You MUST quote ONLY this practice sentence (never quote a wrong Whisper guess): ${practiceLine || '(use context)'}.`,
+        },
+        {
+          role: 'user',
+          content: `Child: ${name}, Phase ${phase}. Practice sentence: "${practiceLine}". Extra: ${context || ''}. Result: ${passed ? 'PASSED' : `FAILED (${issue})`}.`,
+        },
+      ],
+    });
+    const text = completion.choices[0]?.message?.content?.trim();
+    return { message: text || localMessage, voiceHint: 'warm' };
+  } catch (err) {
+    console.warn('Coach LLM unavailable, using local line:', err.message);
+    return { message: localMessage, voiceHint: 'warm' };
+  }
 }

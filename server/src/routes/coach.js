@@ -7,13 +7,14 @@ const router = Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { childId, context, issue, speak = true } = req.body || {};
+    const { childId, context, issue, speak = true, targetSentence } = req.body || {};
     const child = childId ? childrenRepo.get(childId) : null;
     const coach = await coachMessage({
       childName: child?.name,
       phase: child?.phase || 2,
       context,
       issue,
+      targetSentence,
     });
     let audio = null;
     if (speak) {

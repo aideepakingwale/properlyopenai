@@ -44,6 +44,7 @@ async function seed() {
     title: story.title,
     theme: story.theme,
     text: story.text,
+    phase: story.phase,
   });
   story = storiesRepo.updatePaths(story.id, { illustrationUrl: illustration.url });
   const pdf = await generateStoryPdf(story);
