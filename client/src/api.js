@@ -26,6 +26,10 @@ export const api = {
   getRewards: (id) => request(`/api/children/${id}/rewards`),
   generateStory: (body) =>
     request('/api/stories/generate', { method: 'POST', body: JSON.stringify(body) }),
+  createPracticePack: (body) =>
+    request('/api/stories/practice', { method: 'POST', body: JSON.stringify(body) }),
+  listPracticeSentences: (phase) =>
+    request(`/api/stories/practice?phase=${Number(phase) || 2}`),
   getStory: (id) => request(`/api/stories/${id}`),
   startSession: (body) =>
     request('/api/sessions/start', { method: 'POST', body: JSON.stringify(body) }),

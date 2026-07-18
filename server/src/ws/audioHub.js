@@ -76,10 +76,29 @@ export function attachAudioHub(server) {
           }
           const story = storiesRepo.get(session.storyId);
           state.sessionId = session.id;
-          state.expectedText = story?.text || '';
+          // Optional expectedText: assess one sentence instead of the whole story
+          state.expectedText =
+            (typeof msg.expectedText === 'string' && msg.expectedText.trim()) ||
+            story?.text ||
+            '';
           state.chunks = [];
           state.interim = '';
-          send('session_bound', { sessionId: session.id, expectedChars: state.expectedText.length });
+          send('session_bound', {
+            sessionId: session.id,
+            expectedChars: state.expectedText.length,
+            expectedPreview: state.expectedText.slice(0, 80),
+          });
+          return;
+        }
+
+        if (msg.type === 'set_expected') {
+          if (typeof msg.expectedText === 'string' && msg.expectedText.trim()) {
+            state.expectedText = msg.expectedText.trim();
+            send('expected_set', {
+              expectedChars: state.expectedText.length,
+              expectedPreview: state.expectedText.slice(0, 80),
+            });
+          }
           return;
         }
 

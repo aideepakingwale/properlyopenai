@@ -3,6 +3,7 @@ import {
   getPhaseVocabulary,
   highlightText,
 } from '../../../shared/phonicsEngine.js';
+import { buildPracticePack } from '../../../shared/practiceSentences.js';
 import { getOpenAI, isMockMode } from './openaiClient.js';
 import { storiesRepo } from '../db/repositories.js';
 
@@ -109,15 +110,20 @@ export async function generateStory({ phase = 2, theme = '', interests = [], chi
           bad = bad2;
         }
       }
-      if (findDisallowedWords(draft.text, phase).length > 6) {
+      if (!draft.text?.trim() || findDisallowedWords(draft.text, phase).length > 6) {
         draft = mockStory(phase, theme, interests);
-        source = 'mock-fallback';
+        source = draft.text?.trim() ? 'mock-fallback' : 'mock-empty';
       }
     } catch (err) {
       console.warn('Story generation failed, using mock:', err.message);
       draft = mockStory(phase, theme, interests);
       source = 'mock-error';
     }
+  }
+
+  if (!draft?.text?.trim()) {
+    draft = mockStory(phase, theme, interests);
+    source = 'mock-empty';
   }
 
   const disallowed = findDisallowedWords(draft.text, phase);
@@ -135,6 +141,27 @@ export async function generateStory({ phase = 2, theme = '', interests = [], chi
   });
 
   return story;
+}
+
+/**
+ * Create a curated sentence pack for reading + per-sentence assessment.
+ * Always available offline (no OpenAI).
+ */
+export function createPracticeStory({ phase = 2, theme = 'practice', childId = null, count } = {}) {
+  const pack = buildPracticePack(phase, { theme, count });
+  return storiesRepo.create({
+    phase: pack.phase,
+    theme: pack.theme,
+    title: pack.title,
+    text: pack.text,
+    metadata: {
+      source: 'practice-pack',
+      kind: 'practice',
+      childId,
+      sentences: pack.sentences,
+      highlight: highlightText(pack.text, pack.phase),
+    },
+  });
 }
 
 export async function coachMessage({ childName, phase, context, issue }) {

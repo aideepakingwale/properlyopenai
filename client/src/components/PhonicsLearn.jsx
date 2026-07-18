@@ -138,9 +138,19 @@ export default function PhonicsLearn({
           {guide.trickyWords?.length > 0 && (
             <>
               <h3>Tricky words</h3>
+              <p className="tricky-hint">
+                Tap a coloured chunk for its phoneme. Tap the word (or Hear word) to sound out
+                every phoneme, then hear the whole word.
+              </p>
               <div className="chip-row phonics-word-row">
                 {guide.trickyWords.map((w) => (
-                  <PhonicsWord key={w} word={w} phase={phase} player={player} />
+                  <PhonicsWord
+                    key={w}
+                    word={w}
+                    phase={phase}
+                    player={player}
+                    showWordButton
+                  />
                 ))}
               </div>
             </>

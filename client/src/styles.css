@@ -438,11 +438,72 @@ textarea {
   font-size: 0.95rem;
 }
 
+.home-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+  max-width: 42rem;
+}
+
+.home-actions .btn.lg {
+  width: 100%;
+  max-width: 22rem;
+  margin-bottom: 0.55rem;
+}
+
+.empty-session {
+  max-width: 28rem;
+  margin: 2rem auto;
+  text-align: center;
+}
+
 .sentence-list {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
   margin-top: 0.75rem;
+}
+
+.sentence-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.sentence-row .sentence-chip {
+  flex: 1 1 12rem;
+}
+
+.sentence-hear-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.sentence-hear {
+  flex-shrink: 0;
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.5rem !important;
+}
+
+.hear-mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.assess-target {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.assess-quote {
+  display: block;
+  margin-top: 0.25rem;
+  font-weight: 600;
+  color: var(--ink-soft);
 }
 
 .sentence-chip {
@@ -593,6 +654,12 @@ textarea {
   margin: 0.2rem 0.35rem;
 }
 
+.phonics-word-tricky {
+  padding: 0.35rem 0.45rem 0.4rem;
+  border-radius: 0.65rem;
+  background: rgba(244, 162, 97, 0.12);
+}
+
 .phonics-word-btn {
   border: none;
   background: transparent;
@@ -601,14 +668,45 @@ textarea {
   font: inherit;
 }
 
+.phonics-word-btn.hearing {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 0.35rem;
+}
+
 .phonics-word-ipa {
   font-size: 0.75rem;
   font-weight: 800;
   color: var(--bark);
 }
 
+.phonics-word-say {
+  margin-top: 0.1rem;
+  border: 1px solid rgba(27, 67, 50, 0.25);
+  background: #fff;
+  color: var(--bark);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.phonics-word-say:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 .phonics-word-row {
   align-items: flex-start;
+}
+
+.tricky-hint {
+  font-size: 0.9rem;
+  margin: 0 0 0.65rem;
+  color: var(--bark);
+  max-width: 40rem;
 }
 
 .level-meter {

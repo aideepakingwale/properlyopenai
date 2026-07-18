@@ -2,13 +2,66 @@ import { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { childrenRepo, storiesRepo } from '../db/repositories.js';
-import { generateStory } from '../services/storyService.js';
+import { generateStory, createPracticeStory } from '../services/storyService.js';
 import { generateIllustration } from '../services/illustrationService.js';
 import { generateStoryPdf } from '../services/pdfService.js';
 import { highlightText } from '../../../shared/phonicsEngine.js';
+import { getPracticeSentences } from '../../../shared/practiceSentences.js';
 import { config } from '../config.js';
 
 const router = Router();
+
+/** List curated practice sentences for a phase (no DB write). */
+router.get('/practice', (req, res) => {
+  const phase = Number(req.query.phase) || 2;
+  const sentences = getPracticeSentences(phase);
+  res.json({
+    phase,
+    title: `Phase ${phase} practice sentences`,
+    sentences,
+    text: sentences.join(' '),
+  });
+});
+
+/** Create a practice-sentence pack story for a reading/assessment session. */
+router.post('/practice', async (req, res) => {
+  try {
+    const { childId, phase, theme, count } = req.body || {};
+    let child = null;
+    if (childId) child = childrenRepo.get(childId);
+    const ph = Number(phase) || child?.phase || 2;
+
+    let story = createPracticeStory({
+      phase: ph,
+      theme: theme || 'practice',
+      childId: child?.id || null,
+      count: count ? Number(count) : undefined,
+    });
+
+    const illustration = await generateIllustration({
+      title: story.title,
+      theme: story.theme,
+      text: story.text,
+    });
+    story = storiesRepo.updatePaths(story.id, { illustrationUrl: illustration.url });
+
+    const pdf = await generateStoryPdf(story);
+    story = storiesRepo.updatePaths(story.id, {
+      illustrationUrl: illustration.url,
+      pdfPath: pdf.url,
+    });
+
+    res.status(201).json({
+      ...story,
+      highlight: highlightText(story.text, story.phase),
+      sentences: story.metadata?.sentences || getPracticeSentences(ph),
+      kind: 'practice',
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'practice pack failed' });
+  }
+});
 
 router.post('/generate', async (req, res) => {
   try {

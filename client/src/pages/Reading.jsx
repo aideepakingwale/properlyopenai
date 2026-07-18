@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAppStore } from '../store';
@@ -17,21 +17,42 @@ export default function Reading() {
   const setLastRewards = useAppStore((s) => s.setLastRewards);
   const setFeedback = useAppStore((s) => s.setFeedback);
 
+  const isPractice = story?.kind === 'practice' || story?.metadata?.kind === 'practice';
+
   const [owl, setOwl] = useState(
-    'Tap a coloured letter, a word, or a sentence — Mrs Owl will show you how to say it!',
+    isPractice
+      ? 'Pick a sentence below. Hear it, then read it aloud so we can score you.'
+      : 'Tap a coloured letter, a word, or a sentence — Mrs Owl will show you how to say it!',
   );
   const [assessment, setAssessment] = useState(null);
   const [manualTranscript, setManualTranscript] = useState('');
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState('');
-  const [selectedSentence, setSelectedSentence] = useState(-1);
+  const [selectedSentence, setSelectedSentence] = useState(isPractice ? 0 : -1);
 
   const coach = usePronunciationCoach();
 
-  const sentences = useMemo(
-    () => (story ? splitSentences(story.text, story.phase) : []),
-    [story],
-  );
+  const sentences = useMemo(() => {
+    if (!story) return [];
+    const fromMeta = story.metadata?.sentences || story.sentences;
+    if (Array.isArray(fromMeta) && fromMeta.length) {
+      // Rebuild indexes so highlighting / assessment stay aligned
+      const joined = fromMeta.join(' ');
+      const split = splitSentences(joined, story.phase);
+      if (split.length) return split;
+      return fromMeta.map((text, index) => ({
+        index,
+        text,
+        words: extractWords(text),
+        wordIndexes: [],
+        startWordIndex: 0,
+      }));
+    }
+    return splitSentences(story.text, story.phase);
+  }, [story]);
+
+  const activeSentence = selectedSentence >= 0 ? sentences[selectedSentence] : null;
+  const expectedForAssess = activeSentence?.text || story?.text || '';
 
   const onAssessment = useCallback((msg) => {
     setAssessment(msg);
@@ -70,13 +91,19 @@ export default function Reading() {
     onQuality,
   });
 
-  const expectedPreview = useMemo(
-    () => (story ? extractWords(story.text).slice(0, 8).join(' ') : ''),
-    [story],
-  );
+  // Keep live assessment focused on the selected sentence
+  useEffect(() => {
+    if (!audio.setExpectedText) return;
+    audio.setExpectedText(expectedForAssess);
+  }, [expectedForAssess, audio.setExpectedText]);
+
+  useEffect(() => {
+    if (isPractice && selectedSentence < 0 && sentences.length) {
+      setSelectedSentence(0);
+    }
+  }, [isPractice, sentences.length, selectedSentence]);
 
   const hearPhoneme = (payload) => {
-    setSelectedSentence(-1);
     setOwl(`Listen carefully to /${payload.ipa}/…`);
     coach.pronounce({
       type: 'phoneme',
@@ -88,7 +115,6 @@ export default function Reading() {
   };
 
   const hearWord = (payload) => {
-    setSelectedSentence(-1);
     setOwl(`Let's sound out "${payload.word}" together…`);
     coach.pronounce({
       type: 'word',
@@ -98,22 +124,43 @@ export default function Reading() {
     });
   };
 
-  const hearSentence = (sentence) => {
+  const selectSentence = (sentence) => {
     setSelectedSentence(sentence.index);
-    setOwl('Follow the glowing words as I read this sentence…');
+    setManualTranscript('');
+    setAssessment(null);
+    setOwl(`Sentence ${sentence.index + 1} ready — hear sounds, words, or the line, then read aloud.`);
+  };
+
+  /**
+   * @param {object} sentence
+   * @param {'phonemes'|'words'|'full'} hearMode
+   */
+  const hearSentence = (sentence, hearMode = 'phonemes') => {
+    setSelectedSentence(sentence.index);
+    setManualTranscript('');
+    setAssessment(null);
+    const words = extractWords(sentence.text);
+    const localIndexes = words.map((_, i) => i);
+    const tips = {
+      phonemes: 'Listen to each phoneme, then each word, then the whole sentence…',
+      words: 'Listen to each word, then the whole sentence…',
+      full: 'Follow the glowing words as I read this sentence…',
+    };
+    setOwl(tips[hearMode] || tips.phonemes);
     coach.pronounce({
       type: 'sentence',
       text: sentence.text,
       phase: story.phase,
       sentenceIndex: sentence.index,
-      wordIndexes: sentence.wordIndexes,
-      wordIndex: sentence.startWordIndex,
+      wordIndexes: localIndexes,
+      wordIndex: 0,
+      hearMode,
     });
   };
 
   const hearStory = () => {
     setSelectedSentence(-1);
-    setOwl('Follow along — I will read the whole story for you…');
+    setOwl('Follow along — I will read the whole page for you…');
     const allIndexes = sentences.flatMap((s) => s.wordIndexes);
     coach.pronounce({
       type: 'story',
@@ -126,9 +173,28 @@ export default function Reading() {
 
   if (!child || !story || !session) {
     return (
-      <p>
-        No active session. <Link to="/home">Go home</Link>
-      </p>
+      <section className="reading empty-session">
+        <h1>No active reading session</h1>
+        <p>
+          Start <strong>Practice sentences</strong> or a new story from Home so we have lines to
+          read and score.
+        </p>
+        <Link className="btn primary" to="/home">
+          Go home
+        </Link>
+      </section>
+    );
+  }
+
+  if (!sentences.length) {
+    return (
+      <section className="reading empty-session">
+        <h1>{story.title}</h1>
+        <p>This page has no sentences to read. Start a practice pack from Home.</p>
+        <Link className="btn primary" to="/home">
+          Practice sentences
+        </Link>
+      </section>
     );
   }
 
@@ -138,17 +204,21 @@ export default function Reading() {
     const transcript =
       manualTranscript.trim() ||
       assessment?.transcript ||
-      (force ? story.text : expectedPreview);
+      (force ? expectedForAssess : expectedForAssess);
     try {
       audio.sendInterim(transcript);
-      const result = await api.completeSession(session.id, { transcript, force });
+      const result = await api.completeSession(session.id, {
+        transcript,
+        force,
+        expectedText: expectedForAssess,
+      });
       setLastRewards(result.rewards);
       if (result.rewards?.child) setChild(result.rewards.child);
       navigate('/rewards');
     } catch (err) {
       if (err.status === 422) {
         setError(err.data?.message || 'Try reading again');
-        setOwl(err.data?.message || 'Shall we try that page again?');
+        setOwl(err.data?.message || 'Shall we try that sentence again?');
         audio.requestRetry();
       } else {
         setError(err.message || 'Could not complete');
@@ -161,13 +231,16 @@ export default function Reading() {
   const owlMessage = coach.message || owl || audio.lastMessage;
   const activeSentenceWords =
     selectedSentence >= 0 ? sentences[selectedSentence]?.wordIndexes : null;
+  const displayText = activeSentence?.text || story.text;
 
   return (
     <section className="reading">
       <div className="reading-main">
         <header className="story-head">
           <div>
-            <p className="eyebrow">Phase {story.phase} · {story.theme}</p>
+            <p className="eyebrow">
+              Phase {story.phase} · {isPractice ? 'Sentence practice' : story.theme}
+            </p>
             <h1>{story.title}</h1>
           </div>
           {story.illustrationUrl && (
@@ -183,51 +256,116 @@ export default function Reading() {
 
         <div className="listen-toolbar">
           <p className="listen-hint">
-            <strong>Learn with Mrs Owl:</strong> tap a <em>coloured letter</em> to hear the
-            pure phonics sound (sss, not the letter name), tap a <em>word</em> to sound it out,
-            or play a sentence below.
+            <strong>{isPractice ? 'Read & evaluate:' : 'Learn with Mrs Owl:'}</strong>{' '}
+            {isPractice
+              ? 'select a sentence, use Sounds / Words / Line to hear it, then Start reading aloud.'
+              : 'tap a letter or word, or use Sounds / Words / Line on a sentence below.'}
           </p>
           <div className="btn-row">
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={hearStory}
-              disabled={coach.speaking}
-            >
-              Hear whole story
-            </button>
+            {!isPractice && (
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={hearStory}
+                disabled={coach.speaking}
+              >
+                Hear whole story
+              </button>
+            )}
+            {activeSentence && (
+              <div className="hear-mode-row" role="group" aria-label="Hear selected sentence">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => hearSentence(activeSentence, 'phonemes')}
+                  disabled={coach.speaking}
+                  title="Sound out every phoneme, then blend"
+                >
+                  Hear sounds
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => hearSentence(activeSentence, 'words')}
+                  disabled={coach.speaking}
+                >
+                  Hear words
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => hearSentence(activeSentence, 'full')}
+                  disabled={coach.speaking}
+                >
+                  Hear sentence
+                </button>
+              </div>
+            )}
             {coach.speaking && (
               <button type="button" className="btn ghost" onClick={coach.stop}>
                 Stop Mrs Owl
               </button>
             )}
           </div>
-          <div className="sentence-list" aria-label="Sentences">
+          <div className="sentence-list" aria-label="Sentences to read">
             {sentences.map((s) => (
-              <button
-                key={s.index}
-                type="button"
-                className={`sentence-chip ${selectedSentence === s.index ? 'on' : ''} ${
-                  coach.active.sentenceIndex === s.index ? 'playing' : ''
-                }`}
-                onClick={() => hearSentence(s)}
-                disabled={coach.speaking && coach.active.sentenceIndex !== s.index}
-                title="Hear this sentence"
-              >
-                <span className="sentence-num">{s.index + 1}</span>
-                <span className="sentence-preview">{s.text}</span>
-              </button>
+              <div key={s.index} className="sentence-row">
+                <button
+                  type="button"
+                  className={`sentence-chip ${selectedSentence === s.index ? 'on' : ''} ${
+                    coach.active.sentenceIndex === s.index ? 'playing' : ''
+                  }`}
+                  onClick={() => selectSentence(s)}
+                  title="Select this sentence to read and evaluate"
+                >
+                  <span className="sentence-num">{s.index + 1}</span>
+                  <span className="sentence-preview">{s.text}</span>
+                </button>
+                <div className="sentence-hear-group">
+                  <button
+                    type="button"
+                    className="btn ghost sentence-hear"
+                    onClick={() => hearSentence(s, 'phonemes')}
+                    disabled={coach.speaking}
+                    title="Hear phonemes for this sentence"
+                  >
+                    Sounds
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sentence-hear"
+                    onClick={() => hearSentence(s, 'words')}
+                    disabled={coach.speaking}
+                    title="Hear each word"
+                  >
+                    Words
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost sentence-hear"
+                    onClick={() => hearSentence(s, 'full')}
+                    disabled={coach.speaking}
+                    title="Hear the full sentence"
+                  >
+                    Line
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         </div>
 
         <GraphemeText
-          text={story.text}
+          text={displayText}
           phase={story.phase}
-          highlight={story.highlight}
+          highlight={
+            activeSentence
+              ? undefined
+              : story.highlight
+          }
           activeWordIndex={coach.active.wordIndex}
           activeTileIndex={coach.active.tileIndex}
-          activeSentenceWordIndexes={activeSentenceWords}
+          activeSentenceWordIndexes={activeSentence ? null : activeSentenceWords}
           onPhonemeClick={hearPhoneme}
           onWordClick={hearWord}
         />
@@ -262,42 +400,33 @@ export default function Reading() {
             )}
             {(coach.lesson.type === 'sentence' || coach.lesson.type === 'story') && (
               <div>
-                <strong>Follow the glowing words</strong>
+                <strong>
+                  {coach.lesson.hearMode === 'phonemes'
+                    ? 'Sounding out phonemes…'
+                    : coach.lesson.hearMode === 'words'
+                      ? 'Hearing each word…'
+                      : 'Follow the glowing words'}
+                </strong>
                 <p className="ipa-inline">{coach.lesson.display.text}</p>
+                {coach.lesson.hearMode === 'phonemes' &&
+                  Array.isArray(coach.lesson.display.phonemesByWord) && (
+                    <p className="ipa-inline">
+                      {coach.lesson.display.phonemesByWord
+                        .map((ps) => ps.map((p) => `/${p}/`).join(''))
+                        .join(' · ')}
+                    </p>
+                  )}
               </div>
             )}
           </div>
         )}
 
-        <div className="ipa-strip" aria-label="IPA phoneme strip — click to hear">
-          {(story.highlight || [])
-            .filter((p) => p.type === 'word')
-            .flatMap((p, wi) =>
-              (p.tiles || [])
-                .filter((t) => t.grapheme)
-                .map((t, ti) => ({ ...t, word: p.value, wordIndex: wi, tileIndex: ti })),
-            )
-            .slice(0, 32)
-            .map((t, i) => (
-              <button
-                key={`${t.ipa}-${i}`}
-                type="button"
-                className="ipa-chip clickable"
-                onClick={() =>
-                  hearPhoneme({
-                    ipa: t.ipa,
-                    grapheme: t.grapheme,
-                    wordIndex: t.wordIndex,
-                    tileIndex: t.tileIndex,
-                  })
-                }
-              >
-                {t.grapheme} /{t.ipa}/
-              </button>
-            ))}
-        </div>
-
         <div className="mic-panel">
+          <p className="assess-target">
+            Scoring against:{' '}
+            <strong>{activeSentence ? `Sentence ${activeSentence.index + 1}` : 'whole page'}</strong>
+            <span className="assess-quote"> “{expectedForAssess}”</span>
+          </p>
           <div className="level-meter" aria-hidden="true">
             <div className="level-fill" style={{ width: `${Math.min(100, levelPct(audio.level))}%` }} />
           </div>
@@ -307,7 +436,15 @@ export default function Reading() {
           </p>
           <div className="btn-row">
             {!audio.recording ? (
-              <button className="btn primary" onClick={() => audio.startRecording()}>
+              <button
+                className="btn primary"
+                onClick={() => {
+                  if (selectedSentence < 0 && sentences.length) {
+                    setSelectedSentence(0);
+                  }
+                  audio.startRecording();
+                }}
+              >
                 Start reading aloud
               </button>
             ) : (
@@ -318,9 +455,11 @@ export default function Reading() {
                 Stop & assess
               </button>
             )}
-            <a className="btn ghost" href={api.pdfUrl(story.id)} target="_blank" rel="noreferrer">
-              Download PDF
-            </a>
+            {story.id && (
+              <a className="btn ghost" href={api.pdfUrl(story.id)} target="_blank" rel="noreferrer">
+                Download PDF
+              </a>
+            )}
           </div>
 
           <label className="sim-label">
@@ -332,7 +471,7 @@ export default function Reading() {
                 setManualTranscript(e.target.value);
                 audio.sendInterim(e.target.value);
               }}
-              placeholder={story.text}
+              placeholder={expectedForAssess}
             />
           </label>
 

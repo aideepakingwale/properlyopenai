@@ -10,6 +10,7 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   const recorderRef = useRef(null);
   const analyserRef = useRef(null);
   const rafRef = useRef(null);
+  const expectedTextRef = useRef('');
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
   const [level, setLevel] = useState(0);
@@ -31,7 +32,13 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
       setConnected(true);
       setStatus('connected');
       if (sessionId) {
-        ws.send(JSON.stringify({ type: 'start', sessionId }));
+        ws.send(
+          JSON.stringify({
+            type: 'start',
+            sessionId,
+            expectedText: expectedTextRef.current || undefined,
+          }),
+        );
       }
     };
 
@@ -72,9 +79,29 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
 
   useEffect(() => {
     if (connected && sessionId && wsRef.current?.readyState === 1) {
-      wsRef.current.send(JSON.stringify({ type: 'start', sessionId }));
+      wsRef.current.send(
+        JSON.stringify({
+          type: 'start',
+          sessionId,
+          expectedText: expectedTextRef.current || undefined,
+        }),
+      );
     }
   }, [connected, sessionId]);
+
+  /** Focus assessment on one sentence (or restore full story with ''). */
+  const setExpectedText = useCallback((text) => {
+    expectedTextRef.current = String(text || '').trim();
+    if (wsRef.current?.readyState === 1 && sessionId) {
+      if (expectedTextRef.current) {
+        wsRef.current.send(
+          JSON.stringify({ type: 'set_expected', expectedText: expectedTextRef.current }),
+        );
+      } else {
+        wsRef.current.send(JSON.stringify({ type: 'start', sessionId }));
+      }
+    }
+  }, [sessionId]);
 
   const startRecording = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -168,5 +195,6 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     stopRecording,
     sendInterim,
     requestRetry,
+    setExpectedText,
   };
 }

@@ -23,10 +23,21 @@ async function seed() {
 
   let story = storiesRepo.create({
     phase: 2,
-    theme: 'cat',
-    title: 'The Cat Sat',
-    text: 'A cat sat on a mat. The cat had a nap. Dad sat. The cat ran to Dad.',
-    metadata: { source: 'seed' },
+    theme: 'practice',
+    title: 'Phase 2 practice sentences',
+    text: 'A cat sat on a mat. The cat had a nap. Dad sat on a log. A big dog ran to the cat. The cat hid in a bag. I can go into the tent.',
+    metadata: {
+      source: 'seed',
+      kind: 'practice',
+      sentences: [
+        'A cat sat on a mat.',
+        'The cat had a nap.',
+        'Dad sat on a log.',
+        'A big dog ran to the cat.',
+        'The cat hid in a bag.',
+        'I can go into the tent.',
+      ],
+    },
   });
 
   const illustration = await generateIllustration({

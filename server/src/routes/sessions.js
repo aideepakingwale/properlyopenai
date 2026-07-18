@@ -26,7 +26,10 @@ router.post('/:id/validate', (req, res) => {
   if (!session) return res.status(404).json({ error: 'not found' });
   const story = storiesRepo.get(session.storyId);
   const recognized = req.body?.transcript || '';
-  const result = assessHeuristic(story.text, recognized);
+  const expected =
+    (typeof req.body?.expectedText === 'string' && req.body.expectedText.trim()) ||
+    story.text;
+  const result = assessHeuristic(expected, recognized);
   persistAssessment(session.id, result);
   res.json(result);
 });
@@ -37,12 +40,15 @@ router.post('/:id/complete', (req, res) => {
   const story = storiesRepo.get(session.storyId);
   const transcript = req.body?.transcript || '';
   const force = Boolean(req.body?.force);
+  const expected =
+    (typeof req.body?.expectedText === 'string' && req.body.expectedText.trim()) ||
+    story.text;
 
-  const validation = validateReading(story.text, transcript);
+  const validation = validateReading(expected, transcript);
   if (!validation.passed && !force) {
     return res.status(422).json({
       error: 'jaccard_below_threshold',
-      message: 'That did not quite match the story. Try reading it again!',
+      message: 'That did not quite match the words. Try reading that sentence again!',
       validation,
     });
   }

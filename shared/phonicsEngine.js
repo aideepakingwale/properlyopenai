@@ -284,6 +284,186 @@ export const PHASES = {
 // Word-level pronunciation dictionary (scaffold subset for assessment)
 // ---------------------------------------------------------------------------
 
+/**
+ * Letters and Sounds tricky-word grapheme → IPA tiles (teaching segmentations).
+ * Used so tap-to-hear plays the real phonemes, not a naïve letter decode.
+ * Optional `speak` overrides TTS for logos like Mr / Mrs.
+ * @type {Record<string, { tiles: { grapheme: string, ipa: string }[], speak?: string }>}
+ */
+const TRICKY_WORD_TILES = {
+  // Phase 2
+  the: { tiles: [{ grapheme: 'th', ipa: 'ð' }, { grapheme: 'e', ipa: 'ə' }] },
+  to: { tiles: [{ grapheme: 't', ipa: 't' }, { grapheme: 'o', ipa: 'uː' }] },
+  i: { tiles: [{ grapheme: 'I', ipa: 'aɪ' }] },
+  no: { tiles: [{ grapheme: 'n', ipa: 'n' }, { grapheme: 'o', ipa: 'əʊ' }] },
+  go: { tiles: [{ grapheme: 'g', ipa: 'g' }, { grapheme: 'o', ipa: 'əʊ' }] },
+  into: {
+    tiles: [
+      { grapheme: 'i', ipa: 'ɪ' },
+      { grapheme: 'n', ipa: 'n' },
+      { grapheme: 't', ipa: 't' },
+      { grapheme: 'o', ipa: 'uː' },
+    ],
+  },
+  // Phase 3
+  he: { tiles: [{ grapheme: 'h', ipa: 'h' }, { grapheme: 'e', ipa: 'iː' }] },
+  she: { tiles: [{ grapheme: 'sh', ipa: 'ʃ' }, { grapheme: 'e', ipa: 'iː' }] },
+  we: { tiles: [{ grapheme: 'w', ipa: 'w' }, { grapheme: 'e', ipa: 'iː' }] },
+  me: { tiles: [{ grapheme: 'm', ipa: 'm' }, { grapheme: 'e', ipa: 'iː' }] },
+  be: { tiles: [{ grapheme: 'b', ipa: 'b' }, { grapheme: 'e', ipa: 'iː' }] },
+  was: {
+    tiles: [
+      { grapheme: 'w', ipa: 'w' },
+      { grapheme: 'a', ipa: 'ɒ' },
+      { grapheme: 's', ipa: 'z' },
+    ],
+  },
+  you: { tiles: [{ grapheme: 'y', ipa: 'j' }, { grapheme: 'ou', ipa: 'uː' }] },
+  they: { tiles: [{ grapheme: 'th', ipa: 'ð' }, { grapheme: 'ey', ipa: 'eɪ' }] },
+  all: { tiles: [{ grapheme: 'a', ipa: 'ɔː' }, { grapheme: 'll', ipa: 'l' }] },
+  are: { tiles: [{ grapheme: 'are', ipa: 'ɑː' }] },
+  my: { tiles: [{ grapheme: 'm', ipa: 'm' }, { grapheme: 'y', ipa: 'aɪ' }] },
+  her: { tiles: [{ grapheme: 'h', ipa: 'h' }, { grapheme: 'er', ipa: 'ɜː' }] },
+  // Phase 4
+  said: {
+    tiles: [
+      { grapheme: 's', ipa: 's' },
+      { grapheme: 'ai', ipa: 'e' },
+      { grapheme: 'd', ipa: 'd' },
+    ],
+  },
+  have: {
+    tiles: [
+      { grapheme: 'h', ipa: 'h' },
+      { grapheme: 'a', ipa: 'æ' },
+      { grapheme: 've', ipa: 'v' },
+    ],
+  },
+  like: {
+    tiles: [
+      { grapheme: 'l', ipa: 'l' },
+      { grapheme: 'i', ipa: 'aɪ' },
+      { grapheme: 'ke', ipa: 'k' },
+    ],
+  },
+  so: { tiles: [{ grapheme: 's', ipa: 's' }, { grapheme: 'o', ipa: 'əʊ' }] },
+  do: { tiles: [{ grapheme: 'd', ipa: 'd' }, { grapheme: 'o', ipa: 'uː' }] },
+  some: {
+    tiles: [
+      { grapheme: 's', ipa: 's' },
+      { grapheme: 'o', ipa: 'ʌ' },
+      { grapheme: 'me', ipa: 'm' },
+    ],
+  },
+  come: {
+    tiles: [
+      { grapheme: 'c', ipa: 'k' },
+      { grapheme: 'o', ipa: 'ʌ' },
+      { grapheme: 'me', ipa: 'm' },
+    ],
+  },
+  were: { tiles: [{ grapheme: 'w', ipa: 'w' }, { grapheme: 'ere', ipa: 'ɜː' }] },
+  there: { tiles: [{ grapheme: 'th', ipa: 'ð' }, { grapheme: 'ere', ipa: 'eə' }] },
+  little: {
+    tiles: [
+      { grapheme: 'l', ipa: 'l' },
+      { grapheme: 'i', ipa: 'ɪ' },
+      { grapheme: 'tt', ipa: 't' },
+      { grapheme: 'le', ipa: 'ə' },
+    ],
+    phonemes: ['l', 'ɪ', 't', 'ə', 'l'],
+  },
+  one: {
+    tiles: [
+      { grapheme: 'o', ipa: 'w' },
+      { grapheme: 'n', ipa: 'ʌ' },
+      { grapheme: 'e', ipa: 'n' },
+    ],
+  },
+  when: {
+    tiles: [
+      { grapheme: 'wh', ipa: 'w' },
+      { grapheme: 'e', ipa: 'e' },
+      { grapheme: 'n', ipa: 'n' },
+    ],
+  },
+  out: { tiles: [{ grapheme: 'ou', ipa: 'aʊ' }, { grapheme: 't', ipa: 't' }] },
+  what: {
+    tiles: [
+      { grapheme: 'wh', ipa: 'w' },
+      { grapheme: 'a', ipa: 'ɒ' },
+      { grapheme: 't', ipa: 't' },
+    ],
+  },
+  // Phase 5
+  oh: { tiles: [{ grapheme: 'oh', ipa: 'əʊ' }] },
+  their: { tiles: [{ grapheme: 'th', ipa: 'ð' }, { grapheme: 'eir', ipa: 'eə' }] },
+  people: {
+    tiles: [
+      { grapheme: 'p', ipa: 'p' },
+      { grapheme: 'eo', ipa: 'iː' },
+      { grapheme: 'p', ipa: 'p' },
+      { grapheme: 'le', ipa: 'ə' },
+    ],
+    phonemes: ['p', 'iː', 'p', 'ə', 'l'],
+  },
+  mr: {
+    tiles: [{ grapheme: 'Mr', ipa: 'm' }],
+    speak: 'Mister',
+    phonemes: ['m', 'ɪ', 's', 't', 'ə'],
+  },
+  mrs: {
+    tiles: [{ grapheme: 'Mrs', ipa: 'm' }],
+    speak: 'Missus',
+    phonemes: ['m', 'ɪ', 's', 'ɪ', 'z'],
+  },
+  looked: {
+    tiles: [
+      { grapheme: 'l', ipa: 'l' },
+      { grapheme: 'oo', ipa: 'ʊ' },
+      { grapheme: 'k', ipa: 'k' },
+      { grapheme: 'ed', ipa: 't' },
+    ],
+  },
+  called: {
+    tiles: [
+      { grapheme: 'c', ipa: 'k' },
+      { grapheme: 'a', ipa: 'ɔː' },
+      { grapheme: 'll', ipa: 'l' },
+      { grapheme: 'ed', ipa: 'd' },
+    ],
+  },
+  asked: {
+    tiles: [
+      { grapheme: 'a', ipa: 'ɑː' },
+      { grapheme: 's', ipa: 's' },
+      { grapheme: 'k', ipa: 'k' },
+      { grapheme: 'ed', ipa: 't' },
+    ],
+  },
+  could: {
+    tiles: [
+      { grapheme: 'c', ipa: 'k' },
+      { grapheme: 'ou', ipa: 'ʊ' },
+      { grapheme: 'ld', ipa: 'd' },
+    ],
+  },
+  would: {
+    tiles: [
+      { grapheme: 'w', ipa: 'w' },
+      { grapheme: 'ou', ipa: 'ʊ' },
+      { grapheme: 'ld', ipa: 'd' },
+    ],
+  },
+  should: {
+    tiles: [
+      { grapheme: 'sh', ipa: 'ʃ' },
+      { grapheme: 'ou', ipa: 'ʊ' },
+      { grapheme: 'ld', ipa: 'd' },
+    ],
+  },
+};
+
 /** @type {Record<string, string[]>} */
 const PRONUNCIATIONS = {
   sat: ['s', 'æ', 't'], pat: ['p', 'æ', 't'], tap: ['t', 'æ', 'p'], pin: ['p', 'ɪ', 'n'],
@@ -291,17 +471,23 @@ const PRONUNCIATIONS = {
   sad: ['s', 'æ', 'd'], dig: ['d', 'ɪ', 'g'], dog: ['d', 'ɒ', 'g'], cat: ['k', 'æ', 't'],
   kit: ['k', 'ɪ', 't'], get: ['g', 'e', 't'], pet: ['p', 'e', 't'], sun: ['s', 'ʌ', 'n'],
   run: ['r', 'ʌ', 'n'], big: ['b', 'ɪ', 'g'], hot: ['h', 'ɒ', 't'], bed: ['b', 'e', 'd'],
-  the: ['ð', 'ə'], to: ['t', 'uː'], i: ['aɪ'], no: ['n', 'əʊ'], go: ['g', 'əʊ'],
-  into: ['ɪ', 'n', 't', 'uː'], ship: ['ʃ', 'ɪ', 'p'], fish: ['f', 'ɪ', 'ʃ'],
+  ship: ['ʃ', 'ɪ', 'p'], fish: ['f', 'ɪ', 'ʃ'],
   chip: ['tʃ', 'ɪ', 'p'], this: ['ð', 'ɪ', 's'], that: ['ð', 'æ', 't'],
   rain: ['r', 'eɪ', 'n'], tree: ['t', 'r', 'iː'], night: ['n', 'aɪ', 't'],
   boat: ['b', 'əʊ', 't'], moon: ['m', 'uː', 'n'], book: ['b', 'ʊ', 'k'],
   car: ['k', 'ɑː'], for: ['f', 'ɔː'], cow: ['k', 'aʊ'], oil: ['ɔɪ', 'l'],
-  ear: ['ɪə'], air: ['eə'], her: ['h', 'ɜː'], went: ['w', 'e', 'n', 't'],
+  ear: ['ɪə'], air: ['eə'], went: ['w', 'e', 'n', 't'],
   frog: ['f', 'r', 'ɒ', 'g'], stop: ['s', 't', 'ɒ', 'p'], day: ['d', 'eɪ'],
-  play: ['p', 'l', 'eɪ'], make: ['m', 'eɪ', 'k'], like: ['l', 'aɪ', 'k'],
+  play: ['p', 'l', 'eɪ'], make: ['m', 'eɪ', 'k'],
   time: ['t', 'aɪ', 'm'], home: ['h', 'əʊ', 'm'], dragon: ['d', 'r', 'æ', 'g', 'ə', 'n'],
   space: ['s', 'p', 'eɪ', 's'], animal: ['æ', 'n', 'ɪ', 'm', 'ə', 'l'],
+  // Tricky words — keep in sync with TRICKY_WORD_TILES
+  ...Object.fromEntries(
+    Object.entries(TRICKY_WORD_TILES).map(([word, spec]) => [
+      word,
+      spec.phonemes || spec.tiles.map((t) => t.ipa),
+    ]),
+  ),
 };
 
 // ---------------------------------------------------------------------------
@@ -351,13 +537,59 @@ export function getPhaseGraphemes(phase) {
 }
 
 /**
+ * Normalise a word key for dictionary lookup (keeps letters only).
+ * @param {string} word
+ */
+function wordKey(word) {
+  return String(word || '')
+    .toLowerCase()
+    .replace(/[^a-z']/g, '');
+}
+
+/**
+ * @param {string} word
+ * @returns {{ tiles: GraphemeTile[], speak: string, phonemes: string[], tricky: boolean }|null}
+ */
+export function getTrickyWord(word) {
+  const key = wordKey(word);
+  const spec = TRICKY_WORD_TILES[key];
+  if (!spec) return null;
+  const tiles = spec.tiles.map((t) => ({
+    grapheme: t.grapheme,
+    ipa: t.ipa,
+    color: (PHONEMES[t.ipa] || {}).color || '#888888',
+  }));
+  const phonemes = spec.phonemes || tiles.map((t) => t.ipa).filter(Boolean);
+  return {
+    tiles,
+    phonemes: [...phonemes],
+    speak: spec.speak || String(word || '').trim() || key,
+    tricky: true,
+  };
+}
+
+/**
+ * Spoken form for TTS (e.g. Mister for Mr).
+ * @param {string} word
+ */
+export function getWordSpeakText(word) {
+  const tricky = getTrickyWord(word);
+  if (tricky?.speak) return tricky.speak;
+  return String(word || '').trim();
+}
+
+/**
  * Tokenize a word into grapheme tiles with IPA (greedy longest match).
+ * Tricky words use Letters and Sounds teaching segmentations.
  * @param {string} word
  * @returns {GraphemeTile[]}
  */
 export function tokenizeWord(word) {
-  const clean = String(word || '').toLowerCase().replace(/[^a-z'-]/g, '');
+  const clean = wordKey(word);
   if (!clean) return [];
+
+  const tricky = getTrickyWord(word);
+  if (tricky) return tricky.tiles;
 
   // Split grapheme with silent e patterns (a-e etc.) — scaffold: treat as sequential
   const tiles = [];
@@ -400,8 +632,10 @@ export function tokenizeWord(word) {
  * @returns {string[]}
  */
 export function wordToPhonemes(word) {
-  const key = String(word || '').toLowerCase().replace(/[^a-z']/g, '');
+  const key = wordKey(word);
   if (PRONUNCIATIONS[key]) return [...PRONUNCIATIONS[key]];
+  const tricky = getTrickyWord(word);
+  if (tricky) return [...tricky.phonemes];
   return tokenizeWord(key).map((t) => t.ipa).filter(Boolean);
 }
 
@@ -781,9 +1015,16 @@ export function splitSentences(text, phase = 2) {
   return sentences.filter((s) => s.words.length > 0);
 }
 
+/** @param {string[]} words */
+function phonemesListPreview(words) {
+  return words
+    .map((w) => wordToPhonemes(w).map((p) => `/${p}/`).join(''))
+    .join(' · ');
+}
+
 /**
  * Build a pronunciation lesson payload for phoneme / word / sentence / story.
- * @param {{ type: string, value?: string, ipa?: string, grapheme?: string, text?: string, phase?: number }} input
+ * @param {{ type: string, value?: string, ipa?: string, grapheme?: string, text?: string, phase?: number, hearMode?: 'phonemes'|'words'|'full' }} input
  */
 export function buildPronunciationLesson(input) {
   const type = input.type || 'word';
@@ -834,30 +1075,31 @@ export function buildPronunciationLesson(input) {
     const word = String(input.value || input.text || '').trim();
     const tiles = tokenizeWord(word);
     const phonemes = wordToPhonemes(word);
-    const speakText = word;
-    const message = `Let's sound out "${word}": ${phonemes.map((p) => `/${p}/`).join(' ')}. Now blend: ${word}.`;
+    const speakText = getWordSpeakText(word);
+    const message = `Let's sound out "${word}": ${phonemes.map((p) => `/${p}/`).join(' ')}. Now blend: ${speakText}.`;
+    // Prefer full phoneme list (handles tricky extras like little → /ə/+/l/)
+    const pureSteps = phonemes.map((ipa, i) => {
+      const info = getPhonemeCue(ipa);
+      const tile = tiles[i];
+      return {
+        kind: 'tile',
+        pure: true,
+        tileIndex: tile ? i : Math.min(i, Math.max(0, tiles.length - 1)),
+        grapheme: tile?.grapheme || '',
+        ipa,
+        stretch: info.stretch,
+        durationMs: info.stretch ? 850 : 500,
+      };
+    });
     const steps = [
-      ...tiles
-        .filter((t) => t.grapheme)
-        .map((t, i) => {
-          const info = getPhonemeCue(t.ipa);
-          return {
-            kind: 'tile',
-            pure: true,
-            tileIndex: i,
-            grapheme: t.grapheme,
-            ipa: t.ipa,
-            stretch: info.stretch,
-            durationMs: info.stretch ? 850 : 500,
-          };
-        }),
-      { kind: 'word', speak: word, durationMs: Math.max(900, word.length * 180) },
+      ...pureSteps,
+      { kind: 'word', speak: speakText, durationMs: Math.max(900, speakText.length * 180) },
     ];
     return {
       type: 'word',
       message,
       speakText,
-      display: { word, tiles, phonemes },
+      display: { word, tiles, phonemes, speakText },
       steps,
     };
   }
@@ -866,6 +1108,84 @@ export function buildPronunciationLesson(input) {
     const text = String(input.text || input.value || '').trim();
     const words = extractWords(text);
     const speakText = text;
+    /** @type {'phonemes'|'words'|'full'} */
+    const hearMode =
+      input.hearMode === 'phonemes' || input.hearMode === 'words' || input.hearMode === 'full'
+        ? input.hearMode
+        : type === 'sentence'
+          ? 'phonemes'
+          : 'full';
+
+    if (type === 'sentence' && hearMode === 'phonemes') {
+      // Sound out every phoneme in each word, blend the word, then read the sentence
+      const steps = [];
+      words.forEach((w, wi) => {
+        const phonemes = wordToPhonemes(w);
+        const tiles = tokenizeWord(w).filter((t) => t.grapheme);
+        phonemes.forEach((ipa, ti) => {
+          const info = getPhonemeCue(ipa);
+          steps.push({
+            kind: 'tile',
+            pure: true,
+            wordOffset: wi,
+            tileIndex: Math.min(ti, Math.max(0, tiles.length - 1)),
+            grapheme: tiles[ti]?.grapheme || tiles[tiles.length - 1]?.grapheme || '',
+            ipa,
+            stretch: info.stretch,
+            durationMs: info.stretch ? 750 : 480,
+          });
+        });
+        steps.push({
+          kind: 'word',
+          wordOffset: wi,
+          speak: getWordSpeakText(w),
+          durationMs: Math.max(700, w.length * 160),
+        });
+      });
+      steps.push({
+        kind: 'sentence',
+        speak: text,
+        durationMs: Math.max(1200, text.length * 55),
+      });
+      return {
+        type: 'sentence',
+        hearMode: 'phonemes',
+        message: `Let's sound out this sentence: ${phonemesListPreview(words)}. Then blend each word, then the whole line.`,
+        speakText,
+        display: {
+          text,
+          words,
+          hearMode: 'phonemes',
+          phonemesByWord: words.map((w) => wordToPhonemes(w)),
+        },
+        steps,
+        sentences: splitSentences(text, phase),
+      };
+    }
+
+    if (type === 'sentence' && hearMode === 'words') {
+      const steps = words.map((w, i) => ({
+        kind: 'word',
+        wordOffset: i,
+        speak: getWordSpeakText(w),
+        durationMs: Math.max(420, w.length * 160 + 200),
+      }));
+      steps.push({
+        kind: 'sentence',
+        speak: text,
+        durationMs: Math.max(1000, text.length * 50),
+      });
+      return {
+        type: 'sentence',
+        hearMode: 'words',
+        message: 'Listen to each word, then the whole sentence.',
+        speakText,
+        display: { text, words, hearMode: 'words' },
+        steps,
+        sentences: splitSentences(text, phase),
+      };
+    }
+
     const message =
       type === 'story'
         ? 'Listen to Mrs Owl read the whole story. Follow the glowing words.'
@@ -878,9 +1198,10 @@ export function buildPronunciationLesson(input) {
     }));
     return {
       type,
+      hearMode: 'full',
       message,
       speakText,
-      display: { text, words },
+      display: { text, words, hearMode: 'full' },
       steps,
       sentences: splitSentences(text, phase),
     };
@@ -901,6 +1222,8 @@ export default {
   getPhaseGraphemes,
   tokenizeWord,
   wordToPhonemes,
+  getTrickyWord,
+  getWordSpeakText,
   isWordAllowed,
   extractWords,
   expectedPhonemes,

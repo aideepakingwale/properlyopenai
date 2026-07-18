@@ -79,7 +79,7 @@ export function usePhonemePlayer({ autoload = true } = {}) {
    * @param {string[]} ipas
    */
   const playSequence = useCallback(
-    async (ipas, { gapMs = 100 } = {}) => {
+    async (ipas, { gapMs = 100, onStep } = {}) => {
       cancelled.current = false;
       if (!ready) await preload();
       try {
@@ -89,6 +89,7 @@ export function usePhonemePlayer({ autoload = true } = {}) {
             if (cancelled.current) return;
             setPlayingIndex(i);
             setPlayingIpa(ipa);
+            onStep?.(i, ipa);
           },
         });
       } finally {

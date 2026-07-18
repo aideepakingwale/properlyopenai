@@ -18,7 +18,8 @@ export const useAppStore = create(
     }),
     {
       name: 'properly-app',
-      partialize: (s) => ({ child: s.child }),
+      // Keep active reading session so refresh does not lose sentences
+      partialize: (s) => ({ child: s.child, story: s.story, session: s.session }),
     },
   ),
 );

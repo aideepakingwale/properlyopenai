@@ -11,6 +11,8 @@ import {
   getPhonemeCue,
   isWordAllowed,
   extractWords,
+  getTrickyWord,
+  getWordSpeakText,
 } from '@shared/phonicsEngine.js';
 
 /**
@@ -20,6 +22,7 @@ import {
  */
 export function analyseWord(word, phase = 2) {
   const value = String(word || '').trim();
+  const tricky = getTrickyWord(value);
   const tiles = tokenizeWord(value).filter((t) => t.grapheme);
   const phonemes = wordToPhonemes(value);
   const enriched = tiles.map((t, index) => {
@@ -42,6 +45,8 @@ export function analyseWord(word, phase = 2) {
   return {
     word: value,
     allowed: isWordAllowed(value, phase),
+    tricky: Boolean(tricky),
+    speakAs: getWordSpeakText(value),
     tiles: enriched,
     phonemes,
     /** Flat blend components across the word (for teaching diphthong parts) */

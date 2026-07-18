@@ -8,8 +8,8 @@ import {
 
 /**
  * Mrs Owl pronunciation coach.
- * Pure phonemes use Web Audio (real hiss/hum/burst) — never speech synthesis letter names.
- * Tips and full words/sentences may use speech synthesis.
+ * Pure phonemes use Web Audio (real recordings) — never speech synthesis letter names.
+ * Tips, whole words, and sentences may use speech synthesis.
  */
 export function usePronunciationCoach() {
   const [speaking, setSpeaking] = useState(false);
@@ -78,7 +78,6 @@ export function usePronunciationCoach() {
       if (voice) u.voice = voice;
       u.onend = () => resolve();
       u.onerror = () => resolve();
-      // Ensure voices are loaded
       if (window.speechSynthesis.getVoices().length === 0) {
         setTimeout(() => {
           const v2 = pickVoice();
@@ -99,6 +98,13 @@ export function usePronunciationCoach() {
       audio.play().catch(() => resolve());
     });
 
+  const resolveWordIndex = (target, step, baseWordIndex) => {
+    if (typeof step.wordOffset === 'number') {
+      return (target.wordIndexes?.[0] ?? 0) + step.wordOffset;
+    }
+    return baseWordIndex;
+  };
+
   const pronounce = useCallback(
     async (target) => {
       stop();
@@ -106,7 +112,12 @@ export function usePronunciationCoach() {
       setSpeaking(true);
 
       try {
-        const isPhonicsSound = target.type === 'phoneme' || target.type === 'word';
+        const hearMode = target.hearMode || null;
+        const usesStepPlayback =
+          target.type === 'phoneme' ||
+          target.type === 'word' ||
+          (target.type === 'sentence' && (hearMode === 'phonemes' || hearMode === 'words'));
+
         const guide = await api.pronounce({
           type: target.type,
           value: target.value,
@@ -114,8 +125,9 @@ export function usePronunciationCoach() {
           ipa: target.ipa,
           grapheme: target.grapheme,
           phase: target.phase,
-          // No server TTS for phoneme/word — Web Audio handles pure sounds
-          speak: target.type === 'sentence' || target.type === 'story',
+          hearMode: hearMode || undefined,
+          // Server TTS only for unbroken story/full-sentence play
+          speak: target.type === 'story' || (target.type === 'sentence' && hearMode === 'full'),
         });
         if (cancelledRef.current) return;
         setLesson(guide);
@@ -130,36 +142,44 @@ export function usePronunciationCoach() {
         const sentenceIndex =
           typeof target.sentenceIndex === 'number' ? target.sentenceIndex : -1;
 
-        if (isPhonicsSound && guide.steps?.length) {
+        if (usesStepPlayback && guide.steps?.length) {
           await preloadAllPhonemes();
           for (const step of guide.steps) {
             if (cancelledRef.current) break;
+            const wi = resolveWordIndex(target, step, baseWordIndex);
 
             if (step.pure && step.ipa) {
-              // Pure phonics from preloaded 44-sound cache (phonicsEngine SoT)
               setActive({
-                wordIndex: baseWordIndex,
+                wordIndex: wi,
                 tileIndex: step.tileIndex ?? 0,
                 sentenceIndex,
-                mode,
+                mode: hearMode || mode,
               });
               await playCachedPhoneme(step.ipa);
             } else if (step.kind === 'tip' && step.speak) {
               setActive({
-                wordIndex: baseWordIndex,
+                wordIndex: wi,
                 tileIndex: step.tileIndex ?? 0,
                 sentenceIndex,
-                mode,
+                mode: hearMode || mode,
               });
               await playBrowserSpeech(step.speak, 0.95);
             } else if (step.kind === 'word') {
               setActive({
-                wordIndex: baseWordIndex,
+                wordIndex: wi,
                 tileIndex: -1,
                 sentenceIndex,
-                mode,
+                mode: hearMode || mode,
               });
               await playBrowserSpeech(step.speak || target.value, 0.9);
+            } else if (step.kind === 'sentence' && step.speak) {
+              setActive({
+                wordIndex: -1,
+                tileIndex: -1,
+                sentenceIndex,
+                mode: hearMode || mode,
+              });
+              await playBrowserSpeech(step.speak, 0.92);
             }
           }
           if (!cancelledRef.current) {
@@ -169,17 +189,14 @@ export function usePronunciationCoach() {
           return;
         }
 
-        // Sentence / story: highlight words while speaking the sentence
+        // Story / full sentence: highlight words while speaking the line
         const steps = guide.steps || [];
         let t = 0;
         steps.forEach((step) => {
           const id = setTimeout(() => {
             if (cancelledRef.current) return;
             if (step.kind === 'word') {
-              const wi =
-                typeof step.wordOffset === 'number'
-                  ? (target.wordIndexes?.[0] ?? 0) + step.wordOffset
-                  : baseWordIndex;
+              const wi = resolveWordIndex(target, step, baseWordIndex);
               setActive({ wordIndex: wi, tileIndex: -1, sentenceIndex, mode });
             }
           }, t);

@@ -5,7 +5,7 @@ const router = Router();
 
 /**
  * POST /api/pronounce
- * body: { type: 'phoneme'|'word'|'sentence'|'story', value?, text?, ipa?, grapheme?, phase?, speak? }
+ * body: { type, value?, text?, ipa?, grapheme?, phase?, speak?, hearMode?: 'phonemes'|'words'|'full' }
  */
 router.post('/', async (req, res) => {
   try {
@@ -32,6 +32,7 @@ router.post('/', async (req, res) => {
         ipa: body.ipa,
         grapheme: body.grapheme,
         phase: body.phase,
+        hearMode: body.hearMode,
       },
       { speak: body.speak !== false },
     );
