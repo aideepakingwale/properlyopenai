@@ -5,14 +5,14 @@ import OpenAI from 'openai';
 import { config } from '../config.js';
 
 /** Bump when prompt / model defaults change so old SVG placeholders are not reused. */
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v4';
 const INDEX_NAME = 'cache-index.json';
 
 /**
  * Image models are NOT in Cursor/OpenAI free daily chat limits — they bill at standard rates.
  * Always cache by scene hash; prefer low quality for lighter/cheaper kids art.
  */
-const DEFAULT_MODEL_CHAIN = ['gpt-image-1', 'dall-e-3', 'dall-e-2'];
+const DEFAULT_MODEL_CHAIN = ['gpt-image-1-mini', 'gpt-image-1', 'dall-e-2'];
 
 /** @type {OpenAI|null} */
 let imageClient = null;
@@ -20,7 +20,7 @@ let imageClient = null;
 function getImageClient() {
   const key = (config.openaiApiKey || '').trim();
   if (!key) return null;
-  // Illustrations use the real key even when story/Whisper mock mode is on
+  // Story art intentionally uses the real key when one is configured.
   if (!imageClient) {
     imageClient = new OpenAI({ apiKey: key });
   }
@@ -84,14 +84,15 @@ function sceneSummary(text) {
 function buildKidsPrompt({ title, theme, text, phase }) {
   const scene = sceneSummary(text);
   return [
-    'Cheerful UK early-reader picture-book illustration for children aged 4 to 7.',
-    'Style: soft flat colours, simple friendly shapes, gentle lighting, light and airy, uncluttered.',
-    'NOT photorealistic, NOT dark, NOT scary, NOT violent, NOT 3D CGI, NOT adult themes.',
+    'Cheerful UK early-reader picture-book spot illustration for children aged 4 to 7.',
+    'Style: bright playful classroom storybook art, soft flat colours, simple friendly shapes, expressive characters, light and airy, uncluttered.',
+    'Composition: one clear subject, large readable shapes, colourful background details, suitable as a small story thumbnail.',
+    'NOT photorealistic, NOT dark, NOT scary, NOT violent, NOT 3D CGI, NOT adult themes, NOT a generic landscape.',
     'No text, letters, numbers, captions, logos, or watermarks anywhere in the image.',
-    'One clear main scene that a young child can understand at a glance.',
+    'Make the picture directly match the story theme and the chosen child interest.',
     `Letters and Sounds Phase ${Number(phase) || 2} storybook mood.`,
     `Story title (do not write it in the image): ${title || 'My Story'}.`,
-    `Theme: ${theme || 'adventure'}.`,
+    `Chosen child topic/theme: ${theme || 'adventure'}.`,
     `Scene to depict: ${scene}`,
   ].join(' ');
 }
@@ -176,13 +177,18 @@ function sizeForModel(model) {
   const envSize = config.illustrationSize;
   if (envSize) return envSize;
   if (/^dall-e-2$/i.test(model)) return '512x512';
-  // gpt-image-1 / dall-e-3 — 1024 square is enough for story thumbnails
+  // GPT Image models support standard square output; quality/compression keep files light.
   return '1024x1024';
+}
+
+function formatForModel(model) {
+  if (!/^gpt-image/i.test(model)) return 'png';
+  const requested = String(config.illustrationFormat || 'webp').toLowerCase();
+  return ['webp', 'jpeg', 'png'].includes(requested) ? requested : 'webp';
 }
 
 async function generateWithModel(client, model, prompt) {
   const size = sizeForModel(model);
-  const isDallE3 = /^dall-e-3$/i.test(model);
   const isGptImage = /^gpt-image/i.test(model);
   const quality = config.illustrationQuality || 'low';
 
@@ -192,12 +198,18 @@ async function generateWithModel(client, model, prompt) {
     n: 1,
     size,
   };
-  if (isDallE3) {
-    params.quality = quality === 'low' ? 'standard' : quality === 'high' ? 'hd' : 'standard';
-  }
   if (isGptImage) {
     // low = lightest / cheapest kids-friendly option on gpt-image-1
-    params.quality = ['low', 'medium', 'high'].includes(quality) ? quality : 'low';
+    params.quality = ['low', 'medium', 'high', 'auto'].includes(quality) ? quality : 'low';
+    params.output_format = formatForModel(model);
+    if (['webp', 'jpeg'].includes(params.output_format)) {
+      params.output_compression = Math.max(
+        0,
+        Math.min(100, Number(config.illustrationCompression) || 70),
+      );
+    }
+  } else if (/^dall-e-3$/i.test(model)) {
+    params.quality = quality === 'high' ? 'hd' : 'standard';
   }
 
   const result = await client.images.generate(params);
@@ -206,7 +218,7 @@ async function generateWithModel(client, model, prompt) {
   if (!remoteUrl && !b64) {
     throw new Error(`${model} returned no image data`);
   }
-  return { remoteUrl, b64, model, size };
+  return { remoteUrl, b64, model, size, format: params.output_format || 'png' };
 }
 
 /**
@@ -263,8 +275,9 @@ export async function generateIllustration({
 
   for (const model of modelChain()) {
     try {
-      const { remoteUrl, b64, size } = await generateWithModel(client, model, prompt);
-      const filename = `${hash}.png`;
+      const { remoteUrl, b64, size, format } = await generateWithModel(client, model, prompt);
+      const ext = ['webp', 'jpeg', 'jpg', 'png'].includes(format) ? format.replace('jpeg', 'jpg') : 'png';
+      const filename = `${hash}.${ext}`;
       const filepath = path.join(imagesDir(), filename);
 
       if (b64) {
@@ -281,6 +294,9 @@ export async function generateIllustration({
         mock: false,
         model,
         size,
+        format,
+        quality: config.illustrationQuality || 'low',
+        compression: /^gpt-image/i.test(model) ? config.illustrationCompression : null,
         bytes,
         prompt: prompt.slice(0, 280),
       });

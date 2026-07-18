@@ -100,10 +100,20 @@ export default function Home() {
   return (
     <section className="home">
       <div className="home-hero">
+        <div className="kid-badge">Reader clubhouse</div>
         <h1>Hello, {child.name}</h1>
         <p>
           Phase {child.phase} · {child.interests?.join(', ') || 'open themes'}
         </p>
+        {story?.illustrationUrl && (
+          <div className="home-story-preview">
+            <img src={story.illustrationUrl} alt="" width={180} height={180} />
+            <div>
+              <span>Ready to read</span>
+              <strong>{story.title}</strong>
+            </div>
+          </div>
+        )}
         <MrsOwl message={owl} />
       </div>
 
@@ -120,7 +130,7 @@ export default function Home() {
           onClick={beginReading}
           disabled={Boolean(busy)}
         >
-          {busy === 'story' ? 'Writing your story…' : 'Read a new story'}
+          {busy === 'story' ? 'Writing and painting…' : 'Read a new story'}
         </button>
         {story && session && (
           <button className="btn ghost lg" onClick={continueReading} disabled={Boolean(busy)}>

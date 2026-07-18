@@ -1,4 +1,5 @@
-# Render Blueprint — free web service (mock mode by default = $0 OpenAI spend)
+# Render Blueprint — single web service for API + SPA.
+# Keep OPENAI_API_KEY unset for no OpenAI API spend.
 # https://render.com/docs/blueprint-spec
 services:
   - type: web
@@ -18,8 +19,21 @@ services:
         value: "0.55"
       - key: TTS_VOICE
         value: "nova"
-      # Optional: set in the Render dashboard for live AI (not zero-cost)
+      - key: ILLUSTRATIONS_ENABLED
+        value: "false"
+      - key: ILLUSTRATION_MODEL
+        value: "gpt-image-1-mini"
+      - key: ILLUSTRATION_QUALITY
+        value: "low"
+      - key: ILLUSTRATION_FORMAT
+        value: "webp"
+      - key: ILLUSTRATION_COMPRESSION
+        value: "70"
+      # Optional: set in the Render dashboard for live AI / hackathon judging.
+      # OpenAI API usage, including image generation, is metered.
       # - key: OPENAI_API_KEY
       #   sync: false
       # - key: MOCK_MODE
       #   value: "false"
+      # - key: ILLUSTRATIONS_ENABLED
+      #   value: "true"

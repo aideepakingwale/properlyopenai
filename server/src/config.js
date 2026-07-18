@@ -33,9 +33,11 @@ export const config = {
   ttsVoice: process.env.TTS_VOICE || 'nova',
   /** gpt-image / DALL·E are billable — disable to stay on free chat limits only */
   illustrationsEnabled,
-  illustrationModel: (process.env.ILLUSTRATION_MODEL || 'gpt-image-1').trim(),
+  illustrationModel: (process.env.ILLUSTRATION_MODEL || 'gpt-image-1-mini').trim(),
   illustrationQuality: (process.env.ILLUSTRATION_QUALITY || 'low').trim(),
   illustrationSize: (process.env.ILLUSTRATION_SIZE || '').trim(),
+  illustrationFormat: (process.env.ILLUSTRATION_FORMAT || 'webp').trim(),
+  illustrationCompression: Number(process.env.ILLUSTRATION_COMPRESSION || 70),
   storageDir: path.resolve(serverRoot, process.env.STORAGE_DIR || 'storage'),
   dbPath: path.resolve(serverRoot, process.env.DB_PATH || 'data/properly.db'),
   serveClient: String(process.env.SERVE_CLIENT || 'true').toLowerCase() !== 'false',

@@ -275,13 +275,18 @@ export default function Reading() {
             <h1>{story.title}</h1>
           </div>
           {story.illustrationUrl && (
-            <img
-              className="story-art"
-              src={story.illustrationUrl}
-              alt=""
-              width={160}
-              height={160}
-            />
+            <figure className="story-art-frame">
+              <img
+                className="story-art"
+                src={story.illustrationUrl}
+                alt=""
+                width={180}
+                height={180}
+              />
+              <figcaption>
+                {story.illustrationCached ? 'Story picture ready' : 'Fresh story picture'}
+              </figcaption>
+            </figure>
           )}
         </header>
 
