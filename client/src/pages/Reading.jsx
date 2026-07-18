@@ -263,6 +263,12 @@ export default function Reading() {
   const activeSentenceWords =
     selectedSentence >= 0 ? sentences[selectedSentence]?.wordIndexes : null;
   const displayText = activeSentence?.text || story.text;
+  const listenSentence = activeSentence || sentences[0];
+  const pictureLabel = story.illustrationMock
+    ? 'Demo picture'
+    : story.illustrationCached
+      ? 'Reused story picture'
+      : 'Fresh story picture';
 
   return (
     <section className="reading">
@@ -283,28 +289,79 @@ export default function Reading() {
                 width={180}
                 height={180}
               />
-              <figcaption>
-                {story.illustrationCached ? 'Story picture ready' : 'Fresh story picture'}
-              </figcaption>
+              <figcaption>{pictureLabel}</figcaption>
             </figure>
           )}
         </header>
 
         <div className="listen-toolbar">
-          <p className="listen-hint">
-            <strong>Hear order:</strong> each word’s phonemes play from the{' '}
-            <em>44 cached sounds</em> first, then the blended word, then the full sentence.
-          </p>
-          <div className="btn-row">
-            <div className="hear-mode-row" role="group" aria-label="Hear whole page">
+          <div className="listen-panel-head">
+            <div>
+              <p className="eyebrow">Listen and practise</p>
+              <h2>{listenSentence ? `Line ${listenSentence.index + 1}` : 'Whole story'}</h2>
+            </div>
+            {coach.speaking && (
+              <button type="button" className="btn ghost" onClick={coach.stop}>
+                Stop Mrs Owl
+              </button>
+            )}
+          </div>
+
+          {listenSentence && <p className="listen-target-line">{listenSentence.text}</p>}
+
+          <div className="listen-primary-actions" role="group" aria-label="Listen modes">
+            <button
+              type="button"
+              className="listen-action-card sound"
+              onClick={() => listenSentence && hearSentence(listenSentence, 'phonemes')}
+              disabled={!listenSentence || coach.speaking}
+              title="Hear phonemes, then words, then the full line"
+            >
+              <span className="listen-action-icon">/s/</span>
+              <span>
+                <strong>Sound it out</strong>
+                <small>sounds, words, line</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="listen-action-card words"
+              onClick={() => listenSentence && hearSentence(listenSentence, 'words')}
+              disabled={!listenSentence || coach.speaking}
+              title="Hear each word, then the full line"
+            >
+              <span className="listen-action-icon">Aa</span>
+              <span>
+                <strong>Word by word</strong>
+                <small>words, line</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              className="listen-action-card line"
+              onClick={() => listenSentence && hearSentence(listenSentence, 'full')}
+              disabled={!listenSentence || coach.speaking}
+              title="Hear the full line only"
+            >
+              <span className="listen-action-icon">▶</span>
+              <span>
+                <strong>Read the line</strong>
+                <small>sentence only</small>
+              </span>
+            </button>
+          </div>
+
+          <div className="story-listen-row" role="group" aria-label="Whole page listening">
+            <span>Whole page</span>
+            <div>
               <button
                 type="button"
-                className="btn primary"
+                className="btn secondary"
                 onClick={() => hearStory('phonemes')}
                 disabled={coach.speaking}
                 title="Phonemes, then words, then each sentence"
               >
-                Hear story (sounds → words → sentences)
+                Sounds
               </button>
               <button
                 type="button"
@@ -312,7 +369,7 @@ export default function Reading() {
                 onClick={() => hearStory('words')}
                 disabled={coach.speaking}
               >
-                Words → sentences
+                Words
               </button>
               <button
                 type="button"
@@ -320,47 +377,17 @@ export default function Reading() {
                 onClick={() => hearStory('full')}
                 disabled={coach.speaking}
               >
-                Full page only
+                Story
               </button>
             </div>
-            {activeSentence && (
-              <div className="hear-mode-row" role="group" aria-label="Hear selected sentence">
-                <button
-                  type="button"
-                  className="btn secondary"
-                  onClick={() => hearSentence(activeSentence, 'phonemes')}
-                  disabled={coach.speaking}
-                  title="Phonemes, then each word, then this sentence"
-                >
-                  Hear line (sounds → word → sentence)
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => hearSentence(activeSentence, 'words')}
-                  disabled={coach.speaking}
-                >
-                  Words → sentence
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => hearSentence(activeSentence, 'full')}
-                  disabled={coach.speaking}
-                >
-                  Sentence only
-                </button>
-              </div>
-            )}
-            {coach.speaking && (
-              <button type="button" className="btn ghost" onClick={coach.stop}>
-                Stop Mrs Owl
-              </button>
-            )}
           </div>
+
           <div className="sentence-list" aria-label="Sentences to read">
             {sentences.map((s) => (
-              <div key={s.index} className="sentence-row">
+              <div
+                key={s.index}
+                className={`sentence-row ${selectedSentence === s.index ? 'active' : ''}`}
+              >
                 <button
                   type="button"
                   className={`sentence-chip ${selectedSentence === s.index ? 'on' : ''} ${
@@ -372,19 +399,19 @@ export default function Reading() {
                   <span className="sentence-num">{s.index + 1}</span>
                   <span className="sentence-preview">{s.text}</span>
                 </button>
-                <div className="sentence-hear-group">
+                <div className="sentence-actions" role="group" aria-label={`Listen to line ${s.index + 1}`}>
                   <button
                     type="button"
-                    className="btn secondary sentence-hear"
+                    className="listen-mini-action primary"
                     onClick={() => hearSentence(s, 'phonemes')}
                     disabled={coach.speaking}
                     title="Phonemes → word → sentence"
                   >
-                    Hear
+                    Sounds
                   </button>
                   <button
                     type="button"
-                    className="btn ghost sentence-hear"
+                    className="listen-mini-action"
                     onClick={() => hearSentence(s, 'words')}
                     disabled={coach.speaking}
                     title="Words → sentence"
@@ -393,7 +420,7 @@ export default function Reading() {
                   </button>
                   <button
                     type="button"
-                    className="btn ghost sentence-hear"
+                    className="listen-mini-action"
                     onClick={() => hearSentence(s, 'full')}
                     disabled={coach.speaking}
                     title="Full sentence only"

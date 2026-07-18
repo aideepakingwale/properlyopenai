@@ -105,9 +105,10 @@ ILLUSTRATION_MODEL=gpt-image-1-mini
 ILLUSTRATION_QUALITY=low
 ILLUSTRATION_FORMAT=webp
 ILLUSTRATION_COMPRESSION=70
+ILLUSTRATION_CACHE_SCOPE=scene
 ```
 
-OpenAI image generation is metered API usage, not a free API feature. The app keeps usage light by using the mini image model, low quality, compressed WebP output, and a scene-hash cache so repeat stories reuse the same image file.
+OpenAI image generation is metered API usage, not a free API feature. The app keeps usage light by using the mini image model, low quality, compressed WebP output, and cache reuse. The server always caches exact story scenes and, by default, reuses generated images only when the phonics phase, selected theme, and visible story subjects match. This avoids paying for repeated dog-and-mud scenes while preventing one broad “animals” or “space” image from being reused for unrelated stories.
 
 **Live AI / hackathon judging mode (uses metered OpenAI API calls):**
 
@@ -255,7 +256,7 @@ You must then:
 | Lower hosting spend | Render free web service or Fly free allowance, subject to each provider's current limits |
 | No extra DB bill | SQLite on local disk (accept ephemeral data on free tiers) |
 | Optional live AI later | Set `OPENAI_API_KEY` + `MOCK_MODE=false` — then OpenAI API usage is billed to your OpenAI account |
-| Low-cost story art | Keep `ILLUSTRATION_MODEL=gpt-image-1-mini`, `ILLUSTRATION_QUALITY=low`, and `ILLUSTRATION_FORMAT=webp` |
+| Low-cost story art | Keep `ILLUSTRATION_MODEL=gpt-image-1-mini`, `ILLUSTRATION_QUALITY=low`, `ILLUSTRATION_FORMAT=webp`, and `ILLUSTRATION_CACHE_SCOPE=scene` |
 
 ---
 
@@ -332,6 +333,7 @@ Reference links:
 | `ILLUSTRATION_QUALITY` | `low` | Low/medium/high quality for GPT Image models |
 | `ILLUSTRATION_FORMAT` | `webp` | Output format for GPT Image models (`webp`, `jpeg`, or `png`) |
 | `ILLUSTRATION_COMPRESSION` | `70` | Compression level for WebP/JPEG story images |
+| `ILLUSTRATION_CACHE_SCOPE` | `scene` | `scene` reuses images when phase, theme, and visible story subjects match; `topic` is broader and cheaper but less precise; `story` / `exact` only reuses exact story-scene matches |
 | `DB_PATH` | `data/properly.db` | SQLite file (relative to `server/`) |
 | `STORAGE_DIR` | `storage` | PDFs, images, audio |
 

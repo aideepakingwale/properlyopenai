@@ -58,6 +58,8 @@ router.post('/practice', async (req, res) => {
       sentences: story.metadata?.sentences || getPracticeSentences(ph),
       kind: 'practice',
       illustrationCached: Boolean(illustration.cached),
+      illustrationMock: Boolean(illustration.mock),
+      illustrationReuse: illustration.reuse || null,
     });
   } catch (err) {
     console.error(err);
@@ -99,6 +101,8 @@ router.post('/generate', async (req, res) => {
       ...story,
       highlight: highlightText(story.text, story.phase),
       illustrationCached: Boolean(illustration.cached),
+      illustrationMock: Boolean(illustration.mock),
+      illustrationReuse: illustration.reuse || null,
     });
   } catch (err) {
     console.error(err);

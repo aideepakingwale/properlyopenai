@@ -39,6 +39,7 @@ export const config = {
   illustrationSize: (process.env.ILLUSTRATION_SIZE || '').trim(),
   illustrationFormat: (process.env.ILLUSTRATION_FORMAT || 'webp').trim(),
   illustrationCompression: Number(process.env.ILLUSTRATION_COMPRESSION || 70),
+  illustrationCacheScope: (process.env.ILLUSTRATION_CACHE_SCOPE || 'scene').trim(),
   storageDir: path.resolve(serverRoot, process.env.STORAGE_DIR || 'storage'),
   dbPath: path.resolve(serverRoot, process.env.DB_PATH || 'data/properly.db'),
   serveClient: String(process.env.SERVE_CLIENT || 'true').toLowerCase() !== 'false',

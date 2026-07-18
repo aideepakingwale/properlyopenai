@@ -29,6 +29,8 @@ services:
         value: "webp"
       - key: ILLUSTRATION_COMPRESSION
         value: "70"
+      - key: ILLUSTRATION_CACHE_SCOPE
+        value: "scene"
       # Optional: set in the Render dashboard for live AI / hackathon judging.
       # OpenAI API usage, including image generation, is metered.
       # - key: OPENAI_API_KEY

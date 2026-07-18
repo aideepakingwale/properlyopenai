@@ -70,6 +70,8 @@ app.get('/api/health', (_req, res) => {
         ? 'openai-image-cached'
         : 'svg-placeholder',
     illustrationModel: config.illustrationModel,
+    illustrationQuality: config.illustrationQuality,
+    illustrationCacheScope: config.illustrationCacheScope,
     jaccardThreshold: config.jaccardThreshold,
     readingScorer: 'v6-word-phonics',
   });

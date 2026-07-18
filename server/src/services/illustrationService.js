@@ -5,7 +5,7 @@ import OpenAI from 'openai';
 import { config } from '../config.js';
 
 /** Bump when prompt / model defaults change so old SVG placeholders are not reused. */
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const INDEX_NAME = 'cache-index.json';
 
 /**
@@ -71,6 +71,78 @@ export function illustrationCacheKey({ title, theme, text, phase = 2 }) {
   return crypto.createHash('sha256').update(payload).digest('hex');
 }
 
+const VISUAL_STOPWORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'big',
+  'can',
+  'did',
+  'for',
+  'from',
+  'get',
+  'got',
+  'had',
+  'has',
+  'have',
+  'he',
+  'her',
+  'him',
+  'his',
+  'i',
+  'in',
+  'is',
+  'it',
+  'its',
+  'little',
+  'my',
+  'of',
+  'on',
+  'ran',
+  'run',
+  'said',
+  'saw',
+  'she',
+  'the',
+  'then',
+  'this',
+  'to',
+  'was',
+  'we',
+  'went',
+  'with',
+]);
+
+function visualSignature({ title, theme, text }) {
+  const source = `${title || ''} ${sceneSummary(text)} ${theme || ''}`.toLowerCase();
+  const words = source
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .map((word) => word.replace(/s$/, ''))
+    .filter((word) => word.length > 1 && !VISUAL_STOPWORDS.has(word));
+  const unique = [...new Set(words)];
+  return unique.slice(0, 10).join('-') || normalizeKeyPart(theme) || 'storybook-scene';
+}
+
+/**
+ * Scene reuse key: reuses only when phase, theme, and visible story subjects match.
+ * This is cheaper than regenerating every story while staying relevant to the plot.
+ */
+export function illustrationSceneCacheKey({ title, theme, text, phase = 2 }) {
+  const payload = [
+    CACHE_VERSION,
+    'reuse:scene',
+    `phase:${Number(phase) || 2}`,
+    `theme:${normalizeKeyPart(theme) || 'adventure'}`,
+    `visual:${visualSignature({ title, theme, text })}`,
+  ].join('|');
+  return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
 /** First 1–2 sentences / short scene cue for the prompt + cache. */
 function sceneSummary(text) {
   const clean = String(text || '')
@@ -83,21 +155,23 @@ function sceneSummary(text) {
 
 function buildKidsPrompt({ title, theme, text, phase }) {
   const scene = sceneSummary(text);
+  const visualCue = visualSignature({ title, theme, text }).replace(/-/g, ', ');
   return [
-    'Cheerful UK early-reader picture-book spot illustration for children aged 4 to 7.',
-    'Style: bright playful classroom storybook art, soft flat colours, simple friendly shapes, expressive characters, light and airy, uncluttered.',
-    'Composition: one clear subject, large readable shapes, colourful background details, suitable as a small story thumbnail.',
-    'NOT photorealistic, NOT dark, NOT scary, NOT violent, NOT 3D CGI, NOT adult themes, NOT a generic landscape.',
+    'Cheerful UK early-reader picture-book illustration for children aged 4 to 7.',
+    'Style: warm semi-realistic storybook painting, natural textures, expressive friendly characters, bright daylight, soft edges, rich but uncluttered details.',
+    'Composition: one clear scene with the main character large and easy to recognise, suitable as a small story thumbnail.',
+    'Avoid flat vector art, geometric icons, abstract shapes, generic landscapes, dark mood, scary faces, violence, 3D CGI, or adult themes.',
     'No text, letters, numbers, captions, logos, or watermarks anywhere in the image.',
-    'Make the picture directly match the story theme and the chosen child interest.',
+    'Depict the actual story events and visible objects. If the chosen topic and story conflict, prioritise the story scene.',
     `Letters and Sounds Phase ${Number(phase) || 2} storybook mood.`,
     `Story title (do not write it in the image): ${title || 'My Story'}.`,
-    `Chosen child topic/theme: ${theme || 'adventure'}.`,
-    `Scene to depict: ${scene}`,
+    `Chosen child topic/theme for background mood only: ${theme || 'adventure'}.`,
+    `Scene to depict exactly: ${scene}`,
+    `Important visible subjects: ${visualCue}.`,
   ].join(' ');
 }
 
-function writeSvgPlaceholder({ title, theme, phase, hash }) {
+function writeSvgPlaceholder({ title, theme, text, phase, hash }) {
   const dir = imagesDir();
   const filename = `${hash || crypto.randomUUID()}.svg`;
   const filepath = path.join(dir, filename);
@@ -105,8 +179,27 @@ function writeSvgPlaceholder({ title, theme, phase, hash }) {
     return { url: `/storage/images/${filename}`, path: filepath, mock: true, cached: true };
   }
 
-  const safeTitle = String(title || 'Story').replace(/[<>&]/g, '').slice(0, 40);
-  const safeTheme = String(theme || 'adventure').replace(/[<>&]/g, '').slice(0, 28);
+  const signature = visualSignature({ title, theme, text });
+  const isDogMud = /\bdog\b/.test(signature) && /\bmud\b/.test(signature);
+  const mainScene = isDogMud
+    ? `
+  <ellipse cx="360" cy="590" rx="260" ry="80" fill="#8D6E63" opacity="0.55"/>
+  <ellipse cx="285" cy="555" rx="84" ry="42" fill="#F6C28B" stroke="#6D4C41" stroke-width="8"/>
+  <circle cx="370" cy="520" r="44" fill="#F6C28B" stroke="#6D4C41" stroke-width="8"/>
+  <circle cx="395" cy="520" r="22" fill="#6D4C41"/>
+  <circle cx="386" cy="512" r="6" fill="#1F2937"/>
+  <circle cx="336" cy="512" r="8" fill="#1F2937"/>
+  <path d="M214 548 C165 510 150 486 172 468 C202 484 225 512 248 545" fill="none" stroke="#F6C28B" stroke-width="18" stroke-linecap="round"/>
+  <path d="M250 588 L222 640 M305 590 L294 646 M350 586 L374 636" stroke="#6D4C41" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="200" cy="618" r="18" fill="#795548" opacity="0.7"/>
+  <circle cx="456" cy="615" r="14" fill="#795548" opacity="0.6"/>`
+    : `
+  <ellipse cx="384" cy="560" rx="260" ry="70" fill="#81C784" opacity="0.85"/>
+  <circle cx="312" cy="430" r="58" fill="#FFF8E1" stroke="#8D6E63" stroke-width="5"/>
+  <ellipse cx="312" cy="410" rx="28" ry="34" fill="#8D6E63"/>
+  <circle cx="296" cy="432" r="5" fill="#1B4332"/>
+  <circle cx="328" cy="432" r="5" fill="#1B4332"/>
+  <path d="M250 520 C310 470 430 470 510 535" fill="none" stroke="#4DB6AC" stroke-width="28" stroke-linecap="round" opacity="0.65"/>`;
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="768" height="768" viewBox="0 0 768 768">
   <defs>
@@ -118,13 +211,7 @@ function writeSvgPlaceholder({ title, theme, phase, hash }) {
   </defs>
   <rect width="768" height="768" fill="url(#sky)"/>
   <circle cx="620" cy="140" r="70" fill="#FFE082"/>
-  <ellipse cx="384" cy="560" rx="260" ry="70" fill="#81C784" opacity="0.85"/>
-  <circle cx="280" cy="420" r="48" fill="#FFF8E1" stroke="#8D6E63" stroke-width="4"/>
-  <ellipse cx="280" cy="400" rx="22" ry="28" fill="#8D6E63"/>
-  <circle cx="268" cy="416" r="4" fill="#1B4332"/>
-  <circle cx="292" cy="416" r="4" fill="#1B4332"/>
-  <text x="384" y="660" text-anchor="middle" font-family="Georgia, serif" font-size="36" fill="#1B4332">${safeTitle}</text>
-  <text x="384" y="705" text-anchor="middle" font-family="Georgia, serif" font-size="22" fill="#3D405B">Phase ${Number(phase) || 2} · ${safeTheme}</text>
+  ${mainScene}
 </svg>`;
   fs.writeFileSync(filepath, svg, 'utf8');
   return { url: `/storage/images/${filename}`, path: filepath, mock: true, cached: false };
@@ -155,6 +242,47 @@ function saveCacheEntry(hash, filename, meta = {}) {
     ...meta,
   };
   writeIndex(index);
+}
+
+function illustrationCacheScope() {
+  const scope = String(config.illustrationCacheScope || 'scene').toLowerCase();
+  if (['story', 'exact', 'false', 'off', 'none'].includes(scope)) return 'story';
+  if (scope === 'topic') return 'topic';
+  return 'scene';
+}
+
+function cacheMeta({ title, theme, phase, hash, reuseHash, extra = {} }) {
+  const scope = illustrationCacheScope();
+  return {
+    title,
+    theme,
+    phase,
+    exactHash: hash,
+    reuseHash,
+    cacheScope: scope,
+    ...extra,
+  };
+}
+
+function saveIllustrationCacheEntries({
+  hash,
+  reuseHash,
+  filename,
+  title,
+  theme,
+  phase,
+  meta = {},
+}) {
+  const base = cacheMeta({ title, theme, phase, hash, reuseHash, extra: meta });
+  saveCacheEntry(hash, filename, base);
+  const scope = illustrationCacheScope();
+  if (scope !== 'story' && reuseHash) {
+    saveCacheEntry(reuseHash, filename, {
+      ...base,
+      aliasFor: hash,
+      cacheScope: scope,
+    });
+  }
 }
 
 async function downloadToFile(remoteUrl, filepath) {
@@ -233,41 +361,94 @@ export async function generateIllustration({
   force = false,
 } = {}) {
   const hash = illustrationCacheKey({ title, theme, text, phase });
+  const scope = illustrationCacheScope();
+  const reuseHash =
+    scope === 'topic'
+      ? illustrationSceneCacheKey({ title: '', theme, text: '', phase })
+      : illustrationSceneCacheKey({ title, theme, text, phase });
   const client = config.illustrationsEnabled ? getImageClient() : null;
 
   if (!force) {
     // Prefer real cached art; skip SVG placeholders when an API key is available
     const hit = lookupCache(hash, { allowMock: !client });
     if (hit) {
-      console.log('Illustration cache hit:', hash.slice(0, 12), hit.mock ? '(placeholder)' : '');
-      return hit;
+      console.log('Illustration exact cache hit:', hash.slice(0, 12), hit.mock ? '(placeholder)' : '');
+      return { ...hit, reuse: 'exact' };
+    }
+    if (scope !== 'story') {
+      const reuseHit = lookupCache(reuseHash, { allowMock: !client });
+      if (reuseHit) {
+        console.log(
+          `Illustration ${scope} cache hit:`,
+          reuseHash.slice(0, 12),
+          `theme=${theme || 'adventure'}`,
+          reuseHit.mock ? '(placeholder)' : '',
+        );
+        saveCacheEntry(hash, path.basename(reuseHit.path), {
+          ...cacheMeta({
+            title,
+            theme,
+            phase,
+            hash,
+            reuseHash,
+            extra: {
+              mock: reuseHit.mock,
+              aliasFor: reuseHash,
+              recovered: false,
+              reuse: scope,
+            },
+          }),
+        });
+        return {
+          ...reuseHit,
+          cached: true,
+          hash,
+          reuseHash,
+          reuse: scope,
+        };
+      }
     }
     for (const ext of ['.png', '.jpg', '.jpeg', '.webp']) {
       const filepath = path.join(imagesDir(), `${hash}${ext}`);
       if (fs.existsSync(filepath)) {
         const filename = `${hash}${ext}`;
-        saveCacheEntry(hash, filename, { title, theme, phase, mock: false, recovered: true });
+        saveIllustrationCacheEntries({
+          hash,
+          reuseHash,
+          filename,
+          title,
+          theme,
+          phase,
+          meta: { mock: false, recovered: true },
+        });
         return {
           url: `/storage/images/${filename}`,
           path: filepath,
           mock: false,
           cached: true,
           hash,
+          reuseHash,
+          reuse: 'exact-file',
         };
       }
     }
   }
 
   if (!client) {
-    const placeholder = writeSvgPlaceholder({ title, theme, phase, hash });
-    saveCacheEntry(hash, path.basename(placeholder.path), {
+    const placeholder = writeSvgPlaceholder({ title, theme, text, phase, hash });
+    saveIllustrationCacheEntries({
+      hash,
+      reuseHash,
+      filename: path.basename(placeholder.path),
       title,
       theme,
       phase,
-      mock: true,
-      reason: 'no_api_key',
+      meta: {
+        mock: true,
+        reason: 'no_api_key',
+      },
     });
-    return { ...placeholder, hash };
+    return { ...placeholder, hash, reuseHash, reuse: 'placeholder' };
   }
 
   const prompt = buildKidsPrompt({ title, theme, text, phase });
@@ -287,18 +468,23 @@ export async function generateIllustration({
       }
 
       const bytes = fs.statSync(filepath).size;
-      saveCacheEntry(hash, filename, {
+      saveIllustrationCacheEntries({
+        hash,
+        reuseHash,
+        filename,
         title,
         theme,
         phase,
-        mock: false,
-        model,
-        size,
-        format,
-        quality: config.illustrationQuality || 'low',
-        compression: /^gpt-image/i.test(model) ? config.illustrationCompression : null,
-        bytes,
-        prompt: prompt.slice(0, 280),
+        meta: {
+          mock: false,
+          model,
+          size,
+          format,
+          quality: config.illustrationQuality || 'low',
+          compression: /^gpt-image/i.test(model) ? config.illustrationCompression : null,
+          bytes,
+          prompt: prompt.slice(0, 280),
+        },
       });
 
       console.log(
@@ -313,6 +499,8 @@ export async function generateIllustration({
         mock: false,
         cached: false,
         hash,
+        reuseHash,
+        reuse: 'generated',
         model,
         bytes,
       };
@@ -323,13 +511,18 @@ export async function generateIllustration({
   }
 
   console.warn('Illustration all models failed, placeholder used:', errors.join(' | '));
-  const placeholder = writeSvgPlaceholder({ title, theme, phase, hash });
-  saveCacheEntry(hash, path.basename(placeholder.path), {
+  const placeholder = writeSvgPlaceholder({ title, theme, text, phase, hash });
+  saveIllustrationCacheEntries({
+    hash,
+    reuseHash,
+    filename: path.basename(placeholder.path),
     title,
     theme,
     phase,
-    mock: true,
-    reason: errors.join(' | '),
+    meta: {
+      mock: true,
+      reason: errors.join(' | '),
+    },
   });
-  return { ...placeholder, hash };
+  return { ...placeholder, hash, reuseHash, reuse: 'placeholder-error' };
 }
