@@ -13,10 +13,11 @@ export default function MrsOwl({ message, speaking = false }) {
           <ellipse cx="28" cy="72" rx="10" ry="16" fill="#6D4C41" />
           <ellipse cx="92" cy="72" rx="10" ry="16" fill="#6D4C41" />
         </svg>
+        {speaking && <span className="owl-eq" aria-hidden="true" />}
       </div>
       <div className="owl-bubble">
-        <strong>Mrs Owl</strong>
-        <p>{message || 'Hello, little reader! Shall we practise phonics together?'}</p>
+        <strong>Mrs Owl {speaking ? '· speaking' : ''}</strong>
+        <p>{message || 'Hello, little reader! Tap a letter or word and I will show you how to say it.'}</p>
       </div>
     </aside>
   );

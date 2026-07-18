@@ -12,7 +12,8 @@
     "seed": "npm run seed --prefix server",
     "build": "npm run build --prefix client",
     "start": "npm run start --prefix server",
-    "start:prod": "npm run build && npm run start --prefix server"
+    "start:prod": "npm run build && npm run start --prefix server",
+    "phonemes:download": "node scripts/download-phoneme-audio.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

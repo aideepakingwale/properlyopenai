@@ -5,6 +5,9 @@ import {
   highlightText,
   PHONEMES,
   ALL_IPA,
+  listAllPhonemes,
+  CONSONANT_IPA,
+  VOWEL_IPA,
 } from '../../../shared/phonicsEngine.js';
 
 const router = Router();
@@ -20,8 +23,16 @@ router.get('/phases/:phase', (req, res) => {
   res.json(guide);
 });
 
+/** Full 44-phoneme bank (colours, examples, blend, phase, audio recipe metadata). */
 router.get('/phonemes', (_req, res) => {
-  res.json({ all: ALL_IPA, phonemes: PHONEMES });
+  res.json({
+    all: ALL_IPA,
+    count: ALL_IPA.length,
+    consonants: CONSONANT_IPA,
+    vowels: VOWEL_IPA,
+    phonemes: PHONEMES,
+    list: listAllPhonemes(),
+  });
 });
 
 router.post('/highlight', (req, res) => {

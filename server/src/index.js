@@ -10,6 +10,7 @@ import storiesRoutes from './routes/stories.js';
 import sessionsRoutes from './routes/sessions.js';
 import coachRoutes from './routes/coach.js';
 import phonicsRoutes from './routes/phonics.js';
+import pronounceRoutes from './routes/pronounce.js';
 import { attachAudioHub } from './ws/audioHub.js';
 
 fs.mkdirSync(config.storageDir, { recursive: true });
@@ -59,6 +60,7 @@ app.use('/api/stories', storiesRoutes);
 app.use('/api/sessions', sessionsRoutes);
 app.use('/api/coach', coachRoutes);
 app.use('/api/phonics', phonicsRoutes);
+app.use('/api/pronounce', pronounceRoutes);
 
 const clientIndex = path.join(config.clientDist, 'index.html');
 if (config.serveClient && fs.existsSync(clientIndex)) {

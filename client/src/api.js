@@ -38,6 +38,8 @@ export const api = {
   completeSession: (id, body) =>
     request(`/api/sessions/${id}/complete`, { method: 'POST', body: JSON.stringify(body) }),
   coach: (body) => request('/api/coach', { method: 'POST', body: JSON.stringify(body) }),
+  pronounce: (body) =>
+    request('/api/pronounce', { method: 'POST', body: JSON.stringify(body) }),
   phases: () => request('/api/phonics/phases'),
   phaseGuide: (phase) => request(`/api/phonics/phases/${phase}`),
   pdfUrl: (storyId) => `/api/stories/${storyId}/pdf`,

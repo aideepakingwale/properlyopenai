@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
 import Onboarding from './pages/Onboarding.jsx';
@@ -7,6 +8,7 @@ import PhonicsGuide from './pages/PhonicsGuide.jsx';
 import Progress from './pages/Progress.jsx';
 import Rewards from './pages/Rewards.jsx';
 import { useAppStore } from './store';
+import { preloadAllPhonemes } from './audio/phonemeCache.js';
 
 function Guard({ children }) {
   const child = useAppStore((s) => s.child);
@@ -15,6 +17,26 @@ function Guard({ children }) {
 }
 
 export default function App() {
+  // Warm the 44-phoneme AudioBuffer cache as soon as the app mounts.
+  // Actual AudioContext unlock happens on first user gesture / play.
+  useEffect(() => {
+    const warm = () => {
+      preloadAllPhonemes().catch(() => {});
+    };
+    warm();
+    const unlock = () => {
+      warm();
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
   return (
     <Layout>
       <Routes>

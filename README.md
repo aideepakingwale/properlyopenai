@@ -295,11 +295,20 @@ You must then:
 
 ---
 
+## Phoneme sound bank
+
+All **44 IPA phonemes** use **real British English isolation recordings** (not synthetic Web Audio tones), cached in the browser via `usePhonemePlayer` / `phonemeCache`.
+
+- Files: `client/public/phonemes/*.mp3`
+- Re-download: `npm run phonemes:download`
+- Attribution: `client/public/phonemes/ATTRIBUTION.txt`
+
 ## Scripts
 
 | Command | Purpose |
 |---------|---------|
 | `npm run install:all` | Install root + server + client deps |
+| `npm run phonemes:download` | Download real 44 IPA phoneme MP3s |
 | `npm run dev` | Dev API + Vite client |
 | `npm run build` | Production SPA build |
 | `npm run start` | Start API (serves SPA if `client/dist` exists) |

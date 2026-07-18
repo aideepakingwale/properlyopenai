@@ -1,21 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
 import { useAppStore } from '../store';
+import PhonicsLearn from '../components/PhonicsLearn.jsx';
 
+/**
+ * Phonics guide page — wraps PhonicsLearn (phase GPCs + optional all-44 bank).
+ * Sounds come from the preloaded phoneme cache (phonicsEngine SoT).
+ */
 export default function PhonicsGuide() {
   const child = useAppStore((s) => s.child);
   const [phase, setPhase] = useState(child?.phase || 2);
-  const [guide, setGuide] = useState(null);
-  const [phases, setPhases] = useState([]);
-
-  useEffect(() => {
-    api.phases().then(setPhases).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    api.phaseGuide(phase).then(setGuide).catch(() => setGuide(null));
-  }, [phase]);
+  const [mode, setMode] = useState('phase');
 
   if (!child) {
     return (
@@ -28,46 +23,33 @@ export default function PhonicsGuide() {
   return (
     <section className="guide">
       <h1>Phonics guide</h1>
-      <p>DfE Letters and Sounds · interactive grapheme tiles</p>
+      <p>
+        Every sound is loaded from the <strong>phonicsEngine</strong> bank (all 44 IPA phonemes).
+        Tap a GPC or digraph for the <em>pure phonics sound</em> — never the letter name.
+      </p>
 
-      <div className="phase-tabs">
-        {(phases.length ? phases : [2, 3, 4, 5].map((id) => ({ id, name: `Phase ${id}` }))).map(
-          (p) => (
-            <button
-              key={p.id}
-              type="button"
-              className={phase === p.id ? 'chip on' : 'chip'}
-              onClick={() => setPhase(p.id)}
-            >
-              {p.name || `Phase ${p.id}`}
-            </button>
-          ),
-        )}
+      <div className="chip-row" style={{ marginBottom: '1rem' }}>
+        <button
+          type="button"
+          className={mode === 'phase' ? 'chip on' : 'chip'}
+          onClick={() => setMode('phase')}
+        >
+          Phase GPCs
+        </button>
+        <button
+          type="button"
+          className={mode === 'all44' ? 'chip on' : 'chip'}
+          onClick={() => setMode('all44')}
+        >
+          All 44 phonemes
+        </button>
       </div>
 
-      {guide && (
-        <>
-          <h2>{guide.name}</h2>
-          <p>{guide.description}</p>
-          <div className="tile-grid">
-            {(guide.tiles || []).map((t) => (
-              <div key={t.grapheme} className="phone-tile" style={{ borderColor: t.color }}>
-                <span className="g" style={{ background: t.color }}>
-                  {t.grapheme}
-                </span>
-                <span className="ipa">/{t.ipa}/</span>
-                <span className="name">{t.name}</span>
-              </div>
-            ))}
-          </div>
-          {guide.trickyWords?.length > 0 && (
-            <>
-              <h3>Tricky words</h3>
-              <p className="tricky">{guide.trickyWords.join(' · ')}</p>
-            </>
-          )}
-        </>
-      )}
+      <PhonicsLearn
+        phase={phase}
+        mode={mode}
+        onPhaseChange={setPhase}
+      />
     </section>
   );
 }

@@ -8,7 +8,6 @@ export async function synthesizeSpeech(text) {
   fs.mkdirSync(path.join(config.storageDir, 'audio'), { recursive: true });
 
   if (isMockMode()) {
-    // Return a tiny silent-ish wav placeholder path marker for client to skip
     return {
       mock: true,
       url: null,
@@ -16,20 +15,30 @@ export async function synthesizeSpeech(text) {
     };
   }
 
-  const openai = getOpenAI();
-  const filename = `${uuid()}.mp3`;
-  const filepath = path.join(config.storageDir, 'audio', filename);
-  const response = await openai.audio.speech.create({
-    model: 'tts-1',
-    voice: config.ttsVoice,
-    input: text.slice(0, 4096),
-  });
-  const buffer = Buffer.from(await response.arrayBuffer());
-  fs.writeFileSync(filepath, buffer);
+  try {
+    const openai = getOpenAI();
+    const filename = `${uuid()}.mp3`;
+    const filepath = path.join(config.storageDir, 'audio', filename);
+    const response = await openai.audio.speech.create({
+      model: 'tts-1',
+      voice: config.ttsVoice,
+      input: text.slice(0, 4096),
+    });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    fs.writeFileSync(filepath, buffer);
 
-  return {
-    mock: false,
-    url: `/storage/audio/${filename}`,
-    text,
-  };
+    return {
+      mock: false,
+      url: `/storage/audio/${filename}`,
+      text,
+    };
+  } catch (err) {
+    console.warn('TTS unavailable, client will use browser speech:', err.message);
+    return {
+      mock: true,
+      url: null,
+      text,
+      error: err.message,
+    };
+  }
 }

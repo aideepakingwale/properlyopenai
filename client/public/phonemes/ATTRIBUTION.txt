@@ -1,0 +1,10 @@
+Phoneme isolation audio (British English)
+========================================
+
+Source: Oxford Dictionary of English (via open GitHub packaging)
+Packaged by: https://github.com/xiaozhah/phoneme_audio
+Downloaded with: npm run phonemes:download
+
+These are real spoken phoneme isolations (MP3), not synthesised tones.
+Filenames use ASCII slugs (see shared/phonemeAudioMap.js) so /s/ and /ʃ/
+do not collide on Windows (s.mp3 vs esh.mp3).
