@@ -1,4 +1,4 @@
-# Zero-cost friendly single-image deploy (Render / Fly.io / Railway / local Docker)
+# Mock-friendly single-image deploy (Render / Fly.io / Railway / local Docker)
 FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
