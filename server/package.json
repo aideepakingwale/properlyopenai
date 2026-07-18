@@ -1,0 +1,21 @@
+{
+  "name": "properly-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/db/seed.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "openai": "^4.82.0",
+    "pdfkit": "^0.16.0",
+    "uuid": "^11.0.5",
+    "ws": "^8.18.0"
+  }
+}

@@ -1,0 +1,70 @@
+import { Router } from 'express';
+import path from 'path';
+import fs from 'fs';
+import { childrenRepo, storiesRepo } from '../db/repositories.js';
+import { generateStory } from '../services/storyService.js';
+import { generateIllustration } from '../services/illustrationService.js';
+import { generateStoryPdf } from '../services/pdfService.js';
+import { highlightText } from '../../../shared/phonicsEngine.js';
+import { config } from '../config.js';
+
+const router = Router();
+
+router.post('/generate', async (req, res) => {
+  try {
+    const { childId, phase, theme, interests } = req.body || {};
+    let child = null;
+    if (childId) child = childrenRepo.get(childId);
+    const ph = Number(phase) || child?.phase || 2;
+    const ints = interests || child?.interests || [];
+    let story = await generateStory({
+      phase: ph,
+      theme: theme || ints[0] || 'animals',
+      interests: ints,
+      childId: child?.id || null,
+    });
+
+    const illustration = await generateIllustration({
+      title: story.title,
+      theme: story.theme,
+      text: story.text,
+    });
+    const withImage = storiesRepo.updatePaths(story.id, {
+      illustrationUrl: illustration.url,
+    });
+
+    const pdf = await generateStoryPdf(withImage);
+    story = storiesRepo.updatePaths(story.id, {
+      illustrationUrl: illustration.url,
+      pdfPath: pdf.url,
+    });
+
+    res.status(201).json({
+      ...story,
+      highlight: highlightText(story.text, story.phase),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'story generation failed' });
+  }
+});
+
+router.get('/:id', (req, res) => {
+  const story = storiesRepo.get(req.params.id);
+  if (!story) return res.status(404).json({ error: 'not found' });
+  res.json({
+    ...story,
+    highlight: highlightText(story.text, story.phase),
+  });
+});
+
+router.get('/:id/pdf', (req, res) => {
+  const story = storiesRepo.get(req.params.id);
+  if (!story) return res.status(404).json({ error: 'not found' });
+  if (!story.pdfPath) return res.status(404).json({ error: 'pdf not ready' });
+  const local = path.join(config.storageDir, story.pdfPath.replace(/^\/storage\//, ''));
+  if (!fs.existsSync(local)) return res.status(404).json({ error: 'pdf missing' });
+  res.download(local, `${story.title || 'story'}.pdf`);
+});
+
+export default router;

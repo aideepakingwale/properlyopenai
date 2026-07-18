@@ -1,0 +1,25 @@
+# Render Blueprint — free web service (mock mode by default = $0 OpenAI spend)
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: properly
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: MOCK_MODE
+        value: "true"
+      - key: SERVE_CLIENT
+        value: "true"
+      - key: CLIENT_ORIGIN
+        value: "*"
+      - key: JACCARD_THRESHOLD
+        value: "0.55"
+      - key: TTS_VOICE
+        value: "nova"
+      # Optional: set in the Render dashboard for live AI (not zero-cost)
+      # - key: OPENAI_API_KEY
+      #   sync: false
+      # - key: MOCK_MODE
+      #   value: "false"

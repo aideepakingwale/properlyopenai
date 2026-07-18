@@ -1,0 +1,20 @@
+{
+  "name": "properly",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Properly — AI-powered phonics tutor for early literacy",
+  "scripts": {
+    "dev": "concurrently -n server,client -c teal,amber \"npm run server\" \"npm run client\"",
+    "server": "npm run start --prefix server",
+    "client": "npm run dev --prefix client",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "seed": "npm run seed --prefix server",
+    "build": "npm run build --prefix client",
+    "start": "npm run start --prefix server",
+    "start:prod": "npm run build && npm run start --prefix server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
