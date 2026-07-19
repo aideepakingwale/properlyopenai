@@ -34,6 +34,9 @@ const TASK_ICONS = {
   hear_sounds: 'Ear',
   read_words: 'at',
   read_sentence: 'Line',
+  next_milestone: 'Go',
+  daily_read: 'Read',
+  next_level: 'Lv',
 };
 
 export default function Progress() {
@@ -55,6 +58,7 @@ export default function Progress() {
   const stages = journey?.stages || fallbackStages(child);
   const activeStage = journey?.activeStage || stages.find((stage) => stage.status === 'current') || stages[0];
   const mission = game?.currentMission;
+  const nextMilestone = mission?.nextMilestone;
   const levelProgress = Math.round((game?.level?.progress || 0) * 100);
   const overallProgress = Math.round((journey?.overallProgress || 0) * 100);
   const recentWins = useMemo(() => buildRecentWins(data, child), [data, child]);
@@ -121,7 +125,22 @@ export default function Progress() {
             <aside className="current-mission-card">
               <div className="mission-ribbon">Current Mission</div>
               <h2>{activeStage?.title || mission?.title || 'Sound Forest'}</h2>
-              <p>Complete 3 tasks to earn your reward.</p>
+              <p>{mission?.subtitle || activeStage?.goal || 'Complete the next quest step.'}</p>
+
+              {nextMilestone && (
+                <div className="next-milestone-card">
+                  <span className="milestone-tag">Next unlock</span>
+                  <strong>{nextMilestone.goal}</strong>
+                  <div className="milestone-meter-row">
+                    <span>{nextMilestone.currentLabel}</span>
+                    <span>{nextMilestone.remainingText}</span>
+                  </div>
+                  <div className="quest-meter" aria-hidden="true">
+                    <span style={{ width: `${Math.round((nextMilestone.progress || 0) * 100)}%` }} />
+                  </div>
+                  <small>{nextMilestone.when}</small>
+                </div>
+              )}
 
               <div className="mission-task-list">
                 {(mission?.tasks || []).map((task) => (
@@ -137,8 +156,8 @@ export default function Progress() {
                 </div>
               </div>
 
-              <Link className="btn primary continue-quest-btn" to="/home">
-                Continue Quest
+              <Link className="btn primary continue-quest-btn" to={mission?.ctaPath || '/home'}>
+                {mission?.ctaLabel || 'Continue Quest'}
               </Link>
             </aside>
           </div>
@@ -220,14 +239,21 @@ function StageNode({ stage, index, active }) {
 
 function MissionTask({ task }) {
   const pct = Math.min(100, Math.round(((task.current || 0) / (task.target || 1)) * 100));
+  const current = `${task.current || 0}${task.suffix || ''}`;
+  const target = `${task.target || 1}${task.suffix || ''}`;
   return (
     <div className={`mission-task ${task.complete ? 'complete' : ''}`}>
       <span className="task-check">{TASK_ICONS[task.id] || (task.complete ? 'OK' : `${task.current}${task.suffix || ''}`)}</span>
       <div>
-        <strong>{task.label}</strong>
+        <div className="mission-task-heading">
+          <strong>{task.label}</strong>
+          <span>{current}/{target}</span>
+        </div>
+        {task.detail && <small>{task.detail}</small>}
         <div className="quest-meter" aria-hidden="true">
           <span style={{ width: `${pct}%` }} />
         </div>
+        {task.hint && <em>{task.hint}</em>}
       </div>
     </div>
   );

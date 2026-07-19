@@ -9,7 +9,8 @@ const COPYRIGHT_WEBSITE = 'https://www.deepakingwale.com';
 export default function Layout({ children }) {
   const child = useAppStore((s) => s.child);
   const { pathname } = useLocation();
-  const mainClass = pathname === '/read' ? 'main main-reading' : 'main';
+  const isLanding = pathname === '/' || pathname === '/landing';
+  const mainClass = pathname === '/read' ? 'main main-reading' : isLanding ? 'main main-landing' : 'main';
   const currentYear = new Date().getFullYear();
 
   return (
@@ -27,8 +28,15 @@ export default function Layout({ children }) {
           <span className="brand-name">Properly</span>
         </Link>
         <nav>
+          {!child && (
+            <>
+              <NavLink to="/">Features</NavLink>
+              <NavLink to="/start">Start</NavLink>
+            </>
+          )}
           {child && (
             <>
+              <NavLink to="/">Features</NavLink>
               <NavLink to="/home">Home</NavLink>
               <NavLink to="/guide">Phonics</NavLink>
               <NavLink to="/progress">Progress</NavLink>

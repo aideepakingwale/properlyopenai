@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAppStore } from '../store';
@@ -15,14 +15,20 @@ export default function Home() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [avatarMessage, setAvatarMessage] = useState('');
+  const [avatarError, setAvatarError] = useState('');
   const [owl, setOwl] = useState(
     `Welcome back, ${child?.name || 'reader'}! Choose a story or practice sentences to read aloud.`,
   );
 
+  useEffect(() => {
+    if (!child?.id) return;
+    api.getChild(child.id).then(setChild).catch(() => {});
+  }, [child?.id, setChild]);
+
   if (!child) {
     return (
       <p>
-        No profile yet. <Link to="/">Start onboarding</Link>
+        No profile yet. <Link to="/start">Start onboarding</Link>
       </p>
     );
   }
@@ -107,25 +113,29 @@ export default function Home() {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file || !child?.id) return;
-    if (!file.type.startsWith('image/')) {
-      setAvatarMessage('Please choose an image file.');
+    setAvatarError('');
+    if (!isLikelyImageFile(file)) {
+      setAvatarMessage('');
+      setAvatarError('Please choose a photo or image file.');
       return;
     }
-    if (file.size > 2_500_000) {
-      setAvatarMessage('Please choose an image below 2.5 MB.');
+    if (file.size > 10_000_000) {
+      setAvatarMessage('');
+      setAvatarError('Please choose an image below 10 MB.');
       return;
     }
     setBusy('avatar');
-    setAvatarMessage('Uploading avatar...');
+    setAvatarMessage('Preparing avatar...');
     setError('');
     try {
-      const image = await readFileAsDataUrl(file);
+      const { image, note } = await prepareAvatarDataUrl(file);
+      setAvatarMessage(note || 'Uploading avatar...');
       const updated = await api.uploadChildAvatar(child.id, image);
       setChild(updated);
       setAvatarMessage('Avatar saved. Your quest marker is now personalised.');
     } catch (err) {
       setAvatarMessage('');
-      setError(err.message || 'Could not upload avatar');
+      setAvatarError(err.message || 'Could not upload avatar');
     } finally {
       setBusy('');
     }
@@ -165,11 +175,20 @@ export default function Home() {
             <span className="eyebrow">Profile settings</span>
             <strong>Quest avatar</strong>
             <p>Upload a profile picture to move through the Phonics Quest map.</p>
-            <label className="btn ghost avatar-upload-btn">
+            <label className={`btn ghost avatar-upload-btn ${busy === 'avatar' ? 'is-busy' : ''}`}>
               {busy === 'avatar' ? 'Saving...' : 'Upload picture'}
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />
+              <input
+                type="file"
+                accept="image/*,.heic,.heif"
+                onChange={uploadAvatar}
+                disabled={busy === 'avatar'}
+              />
             </label>
-            {avatarMessage && <small>{avatarMessage}</small>}
+            {(avatarMessage || avatarError) && (
+              <small className={avatarError ? 'avatar-upload-error' : 'avatar-upload-status'} aria-live="polite">
+                {avatarError || avatarMessage}
+              </small>
+            )}
           </div>
         </div>
 
@@ -207,6 +226,51 @@ export default function Home() {
   );
 }
 
+async function prepareAvatarDataUrl(file) {
+  const original = await readFileAsDataUrl(file);
+  try {
+    const img = await loadImage(original);
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas is not available.');
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    const sourceSize = Math.min(width, height);
+    const sx = (width - sourceSize) / 2;
+    const sy = (height - sourceSize) / 2;
+    ctx.drawImage(img, sx, sy, sourceSize, sourceSize, 0, 0, size, size);
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((value) => resolve(value), 'image/webp', 0.82);
+    });
+    const finalBlob = blob && blob.size ? blob : await new Promise((resolve) => {
+      canvas.toBlob((value) => resolve(value), 'image/jpeg', 0.84);
+    });
+    if (!finalBlob) throw new Error('Browser compression failed.');
+    return {
+      image: await readFileAsDataUrl(finalBlob),
+      note: 'Uploading avatar...',
+    };
+  } catch {
+    return {
+      image: original,
+      note: 'Uploading original photo...',
+    };
+  }
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not prepare this image.'));
+    img.src = src;
+  });
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -214,4 +278,9 @@ function readFileAsDataUrl(file) {
     reader.onerror = () => reject(reader.error || new Error('Could not read image'));
     reader.readAsDataURL(file);
   });
+}
+
+function isLikelyImageFile(file) {
+  if (file.type?.startsWith('image/')) return true;
+  return /\.(png|jpe?g|webp|gif|avif|heic|heif|bmp|tiff?)$/i.test(file.name || '');
 }

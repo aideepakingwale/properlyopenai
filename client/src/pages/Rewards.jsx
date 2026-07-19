@@ -31,6 +31,7 @@ export default function Rewards() {
   const trophyRewards = rewards.filter((r) => r.type.startsWith('trophy') || r.type === 'streak');
   const acornRewards = rewards.filter((r) => r.type === 'acorns').slice(0, 5);
   const levelProgress = Math.round((game?.level?.progress || 0) * 100);
+  const nextMilestone = game?.currentMission?.nextMilestone;
 
   return (
     <section className="rewards">
@@ -80,6 +81,18 @@ export default function Rewards() {
               <span style={{ width: `${levelProgress}%` }} />
             </div>
           </div>
+
+          {nextMilestone && (
+            <div className="level-progress-card vault-level next-vault-unlock">
+              <div>
+                <strong>Next badge</strong>
+                <p>{nextMilestone.remainingText}</p>
+              </div>
+              <div className="quest-meter" aria-hidden="true">
+                <span style={{ width: `${Math.round((nextMilestone.progress || 0) * 100)}%` }} />
+              </div>
+            </div>
+          )}
         </div>
 
         {fresh.length > 0 && (

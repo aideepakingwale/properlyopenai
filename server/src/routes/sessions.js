@@ -45,6 +45,25 @@ router.post('/:id/complete', (req, res) => {
     (typeof req.body?.expectedText === 'string' && req.body.expectedText.trim()) ||
     story.text;
 
+  if (session.status === 'completed') {
+    const child = childrenRepo.get(session.childId);
+    return res.json({
+      session,
+      validation: {
+        passed: true,
+        combined: session.jaccardScore ?? 0,
+        displayScore: Math.round((session.jaccardScore || 0) * 100),
+        reason: 'already_completed',
+      },
+      rewards: {
+        child,
+        rewards: [],
+        alreadyCompleted: true,
+        message: 'Rewards were already collected for this reading mission.',
+      },
+    });
+  }
+
   // Block “submit the expected sentence as the child” cheating
   if (!force) {
     if (!transcript || !extractWords(transcript).length) {

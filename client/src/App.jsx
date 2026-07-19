@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
+import Landing from './pages/Landing.jsx';
 import Onboarding from './pages/Onboarding.jsx';
 import Home from './pages/Home.jsx';
 import Reading from './pages/Reading.jsx';
@@ -12,7 +13,7 @@ import { preloadAllPhonemes } from './audio/phonemeCache.js';
 
 function Guard({ children }) {
   const child = useAppStore((s) => s.child);
-  if (!child) return <Navigate to="/" replace />;
+  if (!child) return <Navigate to="/start" replace />;
   return children;
 }
 
@@ -40,7 +41,9 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Onboarding />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/landing" element={<Landing />} />
+        <Route path="/start" element={<Onboarding />} />
         <Route
           path="/home"
           element={

@@ -79,7 +79,7 @@ export function awardSessionRewards(childId, { jaccardScore = 0 } = {}) {
           childId,
           type: t.type,
           label: t.label,
-          meta: { jaccardScore, completed: completed + 1 },
+          meta: { jaccardScore, completed },
         }),
       );
     }

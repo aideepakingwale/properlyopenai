@@ -11,3 +11,5 @@ Thumbs.db
 *.log
 .vite/
 coverage/
+/artifacts/devpost-demo
+scripts/record-devpost-demo.mjs
