@@ -403,7 +403,7 @@ a {
 
 .landing-showcase {
   display: grid;
-  grid-template-columns: minmax(290px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: minmax(280px, 0.68fr) minmax(0, 1.32fr);
   gap: 1.25rem;
   align-items: center;
   padding: 2.2rem 0 4.2rem;
@@ -442,7 +442,8 @@ a {
 
 .landing-map-panel {
   position: relative;
-  min-height: 30rem;
+  aspect-ratio: 16 / 10;
+  min-height: 0;
   overflow: hidden;
   border: 3px solid #fff;
   border-radius: 8px;
@@ -475,88 +476,103 @@ a {
   animation: landing-map-glow 5s ease-in-out infinite;
 }
 
-.landing-route-motion {
+.landing-route-svg {
   position: absolute;
   inset: 0;
-  z-index: 2;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
   pointer-events: none;
 }
 
-.landing-route-dot,
-.landing-route-spark {
-  position: absolute;
-  width: 0.95rem;
-  height: 0.95rem;
-  border-radius: 50%;
-  border: 2px solid #fff;
-  background: var(--sun);
-  box-shadow: 0 0 0 0.28rem rgba(255, 230, 109, 0.28), 0 7px 16px rgba(36, 48, 79, 0.24);
+.landing-route-guide,
+.landing-route-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.landing-route-dot {
+.landing-route-guide {
+  stroke: rgba(255, 255, 255, 0.86);
+  stroke-width: 0.9;
+  stroke-dasharray: 1.1 1.9;
+  filter: drop-shadow(0 0.25px 0.55px rgba(36, 48, 79, 0.42));
+}
+
+.landing-route-glow {
+  stroke: rgba(255, 230, 109, 0.95);
+  stroke-width: 1.35;
+  stroke-dasharray: 4 98;
+  filter: drop-shadow(0 0 1.1px rgba(255, 178, 63, 0.9));
+  animation: landing-route-flow 4.2s linear infinite;
+}
+
+.landing-route-node {
   animation: landing-route-pulse 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.route-dot-1 {
-  left: 10%;
-  top: 38%;
-  animation-delay: 0s;
+.route-node-2 {
+  animation-delay: 0.25s;
 }
 
-.route-dot-2 {
-  left: 36%;
-  top: 33%;
-  animation-delay: 0.3s;
+.route-node-3 {
+  animation-delay: 0.5s;
 }
 
-.route-dot-3 {
-  left: 70%;
-  top: 33%;
-  animation-delay: 0.6s;
+.route-node-4 {
+  animation-delay: 0.75s;
 }
 
-.route-dot-4 {
-  left: 50%;
-  top: 60%;
-  animation-delay: 0.9s;
+.route-node-5 {
+  animation-delay: 1s;
 }
 
-.route-dot-5 {
-  left: 19%;
-  top: 74%;
-  animation-delay: 1.2s;
+.route-node-6 {
+  animation-delay: 1.25s;
 }
 
-.route-dot-6 {
-  left: 76%;
-  top: 76%;
-  animation-delay: 1.5s;
+.landing-route-node-halo {
+  fill: rgba(255, 230, 109, 0.42);
+  stroke: rgba(255, 255, 255, 0.82);
+  stroke-width: 0.28;
+}
+
+.landing-route-node-dot {
+  fill: #fff8bf;
+  stroke: rgba(141, 90, 59, 0.58);
+  stroke-width: 0.18;
 }
 
 .landing-route-spark {
-  z-index: 3;
-  width: 1.35rem;
-  height: 1.35rem;
-  background: radial-gradient(circle, #fff 0 24%, var(--sun) 25% 62%, var(--amber) 63%);
-  box-shadow: 0 0 0 0.45rem rgba(255, 230, 109, 0.34), 0 0 28px rgba(255, 178, 63, 0.72);
-  animation: landing-spark-path 18s ease-in-out infinite;
+  fill: #fff8bf;
+  stroke: var(--amber);
+  stroke-width: 0.3;
+  filter: drop-shadow(0 0 1.4px rgba(255, 178, 63, 0.95));
 }
 
-.landing-owl-token {
-  position: absolute;
-  left: 10%;
-  top: 38%;
-  z-index: 4;
-  width: 7rem;
-  height: 7rem;
-  object-fit: cover;
-  border: 0.35rem solid #fff;
-  border-radius: 999px;
-  background: #fff8cc;
-  box-shadow: 0 0 0 0.35rem rgba(102, 217, 168, 0.75), 0 14px 28px rgba(36, 48, 79, 0.22);
-  animation: landing-quest-run 18s ease-in-out infinite;
-  transform: translate(-50%, -50%);
-  will-change: left, top, transform;
+.landing-owl-motion {
+  filter: drop-shadow(0 1px 2px rgba(36, 48, 79, 0.34));
+}
+
+.landing-owl-motion-ring {
+  fill: rgba(102, 217, 168, 0.7);
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 0.35;
+}
+
+.landing-owl-motion-frame {
+  fill: #fff8cc;
+  stroke: #fff;
+  stroke-width: 0.55;
+}
+
+.landing-owl-motion-photo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: landing-avatar-bob 1.8s ease-in-out infinite;
 }
 
 .landing-map-stage {
@@ -3929,6 +3945,25 @@ textarea:focus {
   }
 }
 
+@keyframes landing-route-flow {
+  from {
+    stroke-dashoffset: 102;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes landing-avatar-bob {
+  0%,
+  100% {
+    transform: translateY(-0.22px) scale(1);
+  }
+  50% {
+    transform: translateY(0.22px) scale(1.04);
+  }
+}
+
 @keyframes landing-stage-float {
   0%,
   100% {
@@ -3936,84 +3971,6 @@ textarea:focus {
   }
   50% {
     translate: 0 -0.28rem;
-  }
-}
-
-@keyframes landing-quest-run {
-  0%,
-  10% {
-    left: 10%;
-    top: 38%;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  18%,
-  28% {
-    left: 36%;
-    top: 33%;
-    transform: translate(-50%, -50%) scale(1.04);
-  }
-  36%,
-  46% {
-    left: 70%;
-    top: 33%;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  54%,
-  64% {
-    left: 50%;
-    top: 60%;
-    transform: translate(-50%, -50%) scale(1.04);
-  }
-  72%,
-  82% {
-    left: 19%;
-    top: 74%;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  90%,
-  100% {
-    left: 76%;
-    top: 76%;
-    transform: translate(-50%, -50%) scale(1.04);
-  }
-}
-
-@keyframes landing-spark-path {
-  0%,
-  10% {
-    left: 10%;
-    top: 38%;
-    transform: translate(-50%, -50%) scale(0.92);
-  }
-  18%,
-  28% {
-    left: 36%;
-    top: 33%;
-    transform: translate(-50%, -50%) scale(1.06);
-  }
-  36%,
-  46% {
-    left: 70%;
-    top: 33%;
-    transform: translate(-50%, -50%) scale(0.92);
-  }
-  54%,
-  64% {
-    left: 50%;
-    top: 60%;
-    transform: translate(-50%, -50%) scale(1.06);
-  }
-  72%,
-  82% {
-    left: 19%;
-    top: 74%;
-    transform: translate(-50%, -50%) scale(0.92);
-  }
-  90%,
-  100% {
-    left: 76%;
-    top: 76%;
-    transform: translate(-50%, -50%) scale(1.06);
   }
 }
 
@@ -4409,15 +4366,6 @@ textarea:focus {
     font-size: 2.25rem;
   }
 
-  .landing-map-panel {
-    min-height: 23rem;
-  }
-
-  .landing-owl-token {
-    width: 5.8rem;
-    height: 5.8rem;
-  }
-
   .landing-map-stage {
     width: 8.3rem;
     min-height: 3.35rem;
@@ -4444,10 +4392,6 @@ textarea:focus {
 }
 
 @media (max-width: 560px) {
-  .landing-map-panel {
-    min-height: 25.5rem;
-  }
-
   .landing-map-stage {
     width: 7rem;
   }
@@ -4473,11 +4417,6 @@ textarea:focus {
     right: 3%;
   }
 
-  .landing-owl-token {
-    width: 4.9rem;
-    height: 4.9rem;
-  }
-
   .landing-quest-rewards {
     grid-template-columns: 1fr;
   }
@@ -4490,19 +4429,19 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .landing-map-panel::after,
   .landing-map-stage,
-  .landing-owl-token,
-  .landing-route-dot,
-  .landing-route-spark {
+  .landing-route-glow,
+  .landing-route-node,
+  .landing-owl-motion-photo {
     animation: none;
   }
 
-  .landing-owl-token {
-    left: 36%;
-    top: 33%;
+  .landing-route-glow {
+    stroke-dasharray: 1.1 1.9;
+    opacity: 0.62;
   }
 
+  .landing-owl-motion,
   .landing-route-spark {
-    left: 76%;
-    top: 76%;
+    display: none;
   }
 }

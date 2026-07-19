@@ -7,7 +7,7 @@ const FEATURE_BLOCKS = [
     label: 'Story',
     tone: 'coral',
     text:
-      "Creates phase-safe stories from the child's reading level and favourite topics, then reuses cached pictures when the same idea appears again.",
+      "Builds short, phase-safe stories around the child's reading level and favourite topics, with relevant pictures to keep them curious.",
   },
   {
     title: 'Listen before reading',
@@ -21,7 +21,7 @@ const FEATURE_BLOCKS = [
     label: 'Mic',
     tone: 'leaf',
     text:
-      "The microphone flow waits until it is ready, captures the child's attempt, and shows heard words with a fresh score for each retry.",
+      'Children get supportive read-aloud feedback after they speak, including heard words and what to practise next.',
   },
   {
     title: 'Mouth movement cues',
@@ -55,7 +55,7 @@ const STEPS = [
   {
     number: '02',
     title: 'Generate or practise',
-    text: 'Start with short sentences or a new story. Images are low resolution and cached to control server cost.',
+    text: "Start with short practice sentences or a new illustrated story chosen around the child's interests.",
   },
   {
     number: '03',
@@ -70,9 +70,9 @@ const STEPS = [
 ];
 
 const DASHBOARD_POINTS = [
-  'AI-generated story pictures cached for reuse',
-  '44 phoneme sound practice with visual mouth cues',
-  'Fresh scoring on every retry, with heard-word feedback',
+  'Relevant story pictures that support comprehension',
+  'Phoneme sound practice with visual mouth cues',
+  'Supportive read-aloud feedback after each attempt',
   'Quest map, acorns, streaks, and milestone rewards',
 ];
 
@@ -81,6 +81,7 @@ const QUEST_STAGES = [
     order: 1,
     icon: 'Ear',
     title: 'Sound Forest',
+    point: [9, 30],
     milestone: 'Finish your first read aloud',
     reward: 'Sound Explorer Badge',
     benefit: 'Builds confidence hearing and copying first sounds.',
@@ -89,6 +90,7 @@ const QUEST_STAGES = [
     order: 2,
     icon: 'Br',
     title: 'Blend Bridge',
+    point: [31, 27],
     milestone: 'Complete 3 story missions',
     reward: 'Blend Builder Chest',
     benefit: 'Turns separate sounds into smooth short words.',
@@ -97,6 +99,7 @@ const QUEST_STAGES = [
     order: 3,
     icon: 'Wd',
     title: 'Word Meadow',
+    point: [70, 29],
     milestone: 'Finish 5 phase reads',
     reward: 'Word Gardener Badge',
     benefit: 'Grows accuracy with phase-safe words.',
@@ -105,6 +108,7 @@ const QUEST_STAGES = [
     order: 4,
     icon: 'Vo',
     title: 'Sentence Stream',
+    point: [50, 44],
     milestone: 'Score 80% or more once',
     reward: 'Clear Voice Star',
     benefit: 'Encourages clear full-sentence reading.',
@@ -113,6 +117,7 @@ const QUEST_STAGES = [
     order: 5,
     icon: 'Mt',
     title: 'Story Mountain',
+    point: [20, 58.5],
     milestone: 'Score 90% on read aloud',
     reward: 'Story Champion Flag',
     benefit: 'Motivates fluent whole-story reading.',
@@ -121,11 +126,15 @@ const QUEST_STAGES = [
     order: 6,
     icon: 'Key',
     title: 'Treasure Library',
+    point: [88, 59.5],
     milestone: 'Collect 100 acorns',
     reward: 'Library Key',
     benefit: 'Rewards steady practice and reading habit.',
   },
 ];
+
+const QUEST_PATH =
+  'M 9 30 C 15 29.5 23 28.4 31 27 C 40 25.5 49 25.9 58 27.5 C 64 28.5 68 28.8 70 29 C 80 30.4 82 36.4 73 40 C 64 43.4 57 41.5 50 44 C 41.5 47.2 33.5 52.3 25 56.2 C 22.6 57.4 21.1 58 20 58.5 C 28.5 60.4 39 60.2 50 57.5 C 63.5 54.1 78 55.4 88 59.5';
 
 export default function Landing() {
   const child = useAppStore((s) => s.child);
@@ -152,7 +161,7 @@ export default function Landing() {
           </div>
           <div className="landing-proof-row" aria-label="Product highlights">
             <span>Phase-safe stories</span>
-            <span>Cached story images</span>
+            <span>Illustrated reading quests</span>
             <span>Read-aloud feedback</span>
           </div>
         </div>
@@ -201,20 +210,53 @@ export default function Landing() {
         </div>
         <div className="landing-map-panel" aria-label="Phonics quest map preview">
           <img src="/images/quest/phonics-quest-map.webp" alt="" />
-          <div className="landing-route-motion" aria-hidden="true">
+          <svg
+            className="landing-route-svg"
+            viewBox="0 0 100 62.5"
+            preserveAspectRatio="xMidYMid meet"
+            aria-hidden="true"
+          >
+            <defs>
+              <path id="landingQuestMotionPath" d={QUEST_PATH} />
+              <clipPath id="landingQuestAvatarClip">
+                <circle cx="0" cy="0" r="4.7" />
+              </clipPath>
+            </defs>
+            <use href="#landingQuestMotionPath" className="landing-route-guide" />
+            <use href="#landingQuestMotionPath" className="landing-route-glow" />
             {QUEST_STAGES.map((stage) => (
-              <span
-                className={`landing-route-dot route-dot-${stage.order}`}
+              <g
+                className={`landing-route-node route-node-${stage.order}`}
+                transform={`translate(${stage.point[0]} ${stage.point[1]})`}
                 key={stage.order}
-              />
+              >
+                <circle className="landing-route-node-halo" r="2.3" />
+                <circle className="landing-route-node-dot" r="1.1" />
+              </g>
             ))}
-            <span className="landing-route-spark" />
-          </div>
-          <img
-            className="landing-owl-token"
-            src={child?.avatarUrl || '/images/mrs-owl-realistic.png'}
-            alt=""
-          />
+            <circle className="landing-route-spark" r="1.25">
+              <animateMotion dur="20s" repeatCount="indefinite">
+                <mpath href="#landingQuestMotionPath" />
+              </animateMotion>
+            </circle>
+            <g className="landing-owl-motion">
+              <animateMotion dur="20s" repeatCount="indefinite">
+                <mpath href="#landingQuestMotionPath" />
+              </animateMotion>
+              <circle className="landing-owl-motion-ring" r="6.15" />
+              <circle className="landing-owl-motion-frame" r="5.25" />
+              <image
+                className="landing-owl-motion-photo"
+                href={child?.avatarUrl || '/images/mrs-owl-realistic.png'}
+                x="-4.7"
+                y="-4.7"
+                width="9.4"
+                height="9.4"
+                preserveAspectRatio="xMidYMid slice"
+                clipPath="url(#landingQuestAvatarClip)"
+              />
+            </g>
+          </svg>
           {QUEST_STAGES.map((stage) => (
             <article
               className={`landing-map-stage landing-map-stage-${stage.order}`}
@@ -265,7 +307,7 @@ export default function Landing() {
           <p className="eyebrow">Pronunciation support</p>
           <h2>Show children what the sound looks like.</h2>
           <p>
-            MouthCue popups appear anywhere phonemes are introduced, pairing sound playback
+            Pronunciation popups appear anywhere phonemes are introduced, pairing sound playback
             with lips, tongue, and movement arrows. It gives students another way to copy the
             sound before reading the word or sentence.
           </p>
@@ -273,7 +315,7 @@ export default function Landing() {
             <span>Phoneme sounds</span>
             <span>Word blending</span>
             <span>Sentence reading</span>
-            <span>Retry feedback</span>
+            <span>Gentle feedback</span>
           </div>
         </div>
       </section>
