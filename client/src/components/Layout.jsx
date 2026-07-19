@@ -1,8 +1,10 @@
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 
 export default function Layout({ children }) {
   const child = useAppStore((s) => s.child);
+  const { pathname } = useLocation();
+  const mainClass = pathname === '/read' ? 'main main-reading' : 'main';
 
   return (
     <div className="app-shell">
@@ -35,7 +37,7 @@ export default function Layout({ children }) {
           </div>
         )}
       </header>
-      <main className="main">{children}</main>
+      <main className={mainClass}>{children}</main>
     </div>
   );
 }

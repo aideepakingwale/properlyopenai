@@ -119,13 +119,41 @@ router.get('/:id', (req, res) => {
   });
 });
 
-router.get('/:id/pdf', (req, res) => {
-  const story = storiesRepo.get(req.params.id);
-  if (!story) return res.status(404).json({ error: 'not found' });
-  if (!story.pdfPath) return res.status(404).json({ error: 'pdf not ready' });
-  const local = path.join(config.storageDir, story.pdfPath.replace(/^\/storage\//, ''));
-  if (!fs.existsSync(local)) return res.status(404).json({ error: 'pdf missing' });
-  res.download(local, `${story.title || 'story'}.pdf`);
+router.get('/:id/pdf', async (req, res, next) => {
+  try {
+    let story = storiesRepo.get(req.params.id);
+    if (!story) return res.status(404).json({ error: 'not found' });
+
+    let pdfPath = story.pdfPath;
+    let local = pdfPath ? storageUrlToPath(pdfPath) : null;
+    if (!local || !fs.existsSync(local)) {
+      const pdf = await generateStoryPdf(story);
+      story = storiesRepo.updatePaths(story.id, { pdfPath: pdf.url });
+      pdfPath = story.pdfPath;
+      local = storageUrlToPath(pdfPath);
+    }
+
+    if (!local || !fs.existsSync(local)) {
+      return res.status(500).json({ error: 'pdf generation failed' });
+    }
+
+    res.download(local, `${safeDownloadName(story.title || 'story')}.pdf`);
+  } catch (err) {
+    next(err);
+  }
 });
 
 export default router;
+
+function storageUrlToPath(url) {
+  if (!url || !url.startsWith('/storage/')) return null;
+  return path.join(config.storageDir, url.replace(/^\/storage\//, ''));
+}
+
+function safeDownloadName(name) {
+  return String(name)
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || 'story';
+}
