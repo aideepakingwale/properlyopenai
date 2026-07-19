@@ -18,27 +18,72 @@ Title: The Ship
 Text: A ship is on the sea. We see a fish. The fish can swim. She has a wish.
 `.trim();
 
+function pick(list) {
+  return list[Math.floor(Math.random() * list.length)];
+}
+
 function mockStory(phase, theme, interests) {
   const interest = interests[0] || theme || 'animals';
+  const safeInterest = String(interest || 'fun').toLowerCase();
   const templates = {
-    2: {
-      title: `The ${capitalize(interest)} Nap`,
-      text: `A cat sat on a mat. The cat had a nap. Dad sat. A big dog ran. The cat hid in a bag.`,
-    },
-    3: {
-      title: `Moon and the ${capitalize(interest)}`,
-      text: `We see the moon. A ship is on the sea. A fish can swim. She has a wish. Then we hear an owl.`,
-    },
-    4: {
-      title: `Frog at the Pond`,
-      text: `A frog can jump from a plant. We stop and clap. Best friends bring a snack. Then we splash and grin.`,
-    },
-    5: {
-      title: `A Day to Play`,
-      text: `Today we play by the sea. We make a boat. We like the time at home. They shout with joy.`,
-    },
+    2: [
+      {
+        title: `The ${capitalize(safeInterest)} Den`,
+        text: `A dog dig in mud. Dad got a rag. A cat sat on a mat. The dog run in sun.`,
+      },
+      {
+        title: `Sam and the ${capitalize(safeInterest)}`,
+        text: `Dad got a bag. A pin is in it. A cat had a map. Dad sat on a mat.`,
+      },
+      {
+        title: `The Big ${capitalize(safeInterest)}`,
+        text: `A big cat run. It sat on a bin. Dad got a mug. The cat had a nap.`,
+      },
+    ],
+    3: [
+      {
+        title: `Moon and the ${capitalize(safeInterest)}`,
+        text: `We see the moon. A ship is in fog. A fish is in a box. She had a wish.`,
+      },
+      {
+        title: `The Shop Path`,
+        text: `She is at the shop. We see a chip. The fish is in a box. Then we sing.`,
+      },
+      {
+        title: `The Rain Song`,
+        text: `Rain is on the path. We see a boat. A cow is in the road. They all wait.`,
+      },
+    ],
+    4: [
+      {
+        title: `Frog at the Pond`,
+        text: `A frog can jump from a plant. We stop and clap. Stan can bring a snack. Then we splash and grin.`,
+      },
+      {
+        title: `The Tent Trip`,
+        text: `Fran and Stan camp in a tent. They bring a crisp snack. A frog jumps from the grass. They clap and grin.`,
+      },
+      {
+        title: `Clap for the Crab`,
+        text: `A crab is on the sand. It grabs a plum. The children clap and stand. Then it slips back.`,
+      },
+    ],
+    5: [
+      {
+        title: `A Day to Play`,
+        text: `Today we play by the sea. We make a boat. We like the time at home. They shout with joy.`,
+      },
+      {
+        title: `The Blue Rescue`,
+        text: `A blue toy floats away. Jay may reach it by the boat. They smile and wave. It is safe today.`,
+      },
+      {
+        title: `Cake in the Rain`,
+        text: `They make a cake at home. The rain taps the window. We wait and play a game. The day is bright.`,
+      },
+    ],
   };
-  const t = templates[phase] || templates[2];
+  const t = pick(templates[phase] || templates[2]);
   return { title: t.title, text: t.text, theme: interest };
 }
 
@@ -46,10 +91,15 @@ function capitalize(s) {
   return String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
 }
 
-function buildPrompt(phase, theme, interests) {
+function buildPrompt(phase, theme, interests, { recent = [], requestSeed = '' } = {}) {
   const vocab = [...getPhaseVocabulary(phase)].slice(0, 120).join(', ');
+  const recentLines = recent
+    .slice(0, 5)
+    .map((s, i) => `${i + 1}. "${s.title}" - ${s.text}`)
+    .join('\n');
   return `You are writing a UK phonics reading book for Letters and Sounds Phase ${phase}.
 Theme/interests: ${[theme, ...interests].filter(Boolean).join(', ') || 'animals'}.
+Fresh story seed: ${requestSeed}.
 
 STRICT RULES:
 - Use ONLY words appropriate for Phase ${phase} (CVC/simple words for Phase 2; digraphs for Phase 3; adjacent consonants for Phase 4; alternative spellings for Phase 5).
@@ -57,18 +107,22 @@ STRICT RULES:
 - 4 to 6 short sentences.
 - Warm, encouraging, child-friendly.
 - Title under 6 words.
+- Make this story clearly different from recent stories. Use a different title, setting, and sentence order.
 - No advanced vocabulary, no slang.
+
+Recent stories to avoid repeating:
+${recentLines || '(none)'}
 
 ${FEW_SHOT}
 
 Respond as JSON only: {"title":"...","text":"..."}`;
 }
 
-async function generateWithOpenAI(phase, theme, interests) {
+async function generateWithOpenAI(phase, theme, interests, opts = {}) {
   const openai = getOpenAI();
   const completion = await openai.chat.completions.create({
     model: config.chatModel,
-    temperature: 0.4,
+    temperature: 0.75,
     response_format: { type: 'json_object' },
     messages: [
       {
@@ -76,7 +130,7 @@ async function generateWithOpenAI(phase, theme, interests) {
         content:
           'You write tightly constrained phonics stories for UK Letters and Sounds. Never invent advanced vocabulary.',
       },
-      { role: 'user', content: buildPrompt(phase, theme, interests) },
+      { role: 'user', content: buildPrompt(phase, theme, interests, opts) },
     ],
   });
   const raw = completion.choices[0]?.message?.content || '{}';
@@ -94,19 +148,35 @@ async function generateWithOpenAI(phase, theme, interests) {
 export async function generateStory({ phase = 2, theme = '', interests = [], childId = null }) {
   let draft;
   let source = 'mock';
+  const selectedTheme = theme || interests[0] || 'animals';
+  const recent = storiesRepo.recentForPhaseTheme(phase, selectedTheme, 5);
+  const requestSeed = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
   if (isMockMode()) {
     draft = mockStory(phase, theme, interests);
   } else {
     try {
-      draft = await generateWithOpenAI(phase, theme, interests);
+      draft = await generateWithOpenAI(phase, theme, interests, { recent, requestSeed });
       source = config.chatModel;
       let bad = findDisallowedWords(draft.text, phase);
-      if (bad.length > 3) {
+      const isRepeat = recent.some(
+        (s) =>
+          normalizeStoryText(s.title) === normalizeStoryText(draft.title) ||
+          normalizeStoryText(s.text) === normalizeStoryText(draft.text),
+      );
+      if (bad.length > 3 || isRepeat) {
         // Retry once with stricter reminder
-        const retry = await generateWithOpenAI(phase, theme, interests);
+        const retry = await generateWithOpenAI(phase, theme, interests, {
+          recent: [draft, ...recent],
+          requestSeed: `${requestSeed}-retry`,
+        });
         const bad2 = findDisallowedWords(retry.text, phase);
-        if (bad2.length < bad.length) {
+        const retryRepeat = recent.some(
+          (s) =>
+            normalizeStoryText(s.title) === normalizeStoryText(retry.title) ||
+            normalizeStoryText(s.text) === normalizeStoryText(retry.text),
+        );
+        if ((bad2.length < bad.length || isRepeat) && !retryRepeat) {
           draft = retry;
           bad = bad2;
         }
@@ -138,10 +208,18 @@ export async function generateStory({ phase = 2, theme = '', interests = [], chi
       childId,
       disallowed,
       highlight: highlightText(draft.text, phase),
+      requestSeed,
     },
   });
 
   return story;
+}
+
+function normalizeStoryText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 /**

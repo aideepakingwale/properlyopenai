@@ -58,11 +58,15 @@ export default function Home() {
     setBusy('story');
     setError('');
     try {
+      const interests = child.interests || [];
+      const theme = interests.length
+        ? interests[Math.floor(Math.random() * interests.length)]
+        : 'animals';
       const next = await api.generateStory({
         childId: child.id,
         phase: child.phase,
-        interests: child.interests,
-        theme: child.interests?.[0],
+        interests,
+        theme,
       });
       await startWithStory(next, 'story');
     } catch (err) {

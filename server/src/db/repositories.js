@@ -97,6 +97,18 @@ export const storiesRepo = {
         .get(phase),
     );
   },
+
+  recentForPhaseTheme(phase, theme, limit = 5) {
+    return getDb()
+      .prepare(
+        `SELECT * FROM stories
+         WHERE phase = ? AND theme = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .all(phase, theme, Number(limit) || 5)
+      .map(rowStory);
+  },
 };
 
 export const sessionsRepo = {
