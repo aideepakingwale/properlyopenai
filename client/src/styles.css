@@ -1459,6 +1459,450 @@ textarea:focus {
   border-color: var(--berry);
 }
 
+.progress-hero,
+.rewards-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.progress-lede {
+  max-width: 48rem;
+  margin: 0.35rem 0 0;
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.level-card {
+  min-width: 16rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #fff4bf, #e7f8ff);
+  border: 3px solid #fff;
+  box-shadow: 0 8px 0 rgba(36, 48, 79, 0.08);
+}
+
+.level-card strong,
+.level-card span {
+  display: block;
+}
+
+.level-card span {
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.level-ring {
+  width: 4.4rem;
+  height: 4.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background:
+    radial-gradient(circle, #fff 0 54%, transparent 56%),
+    conic-gradient(var(--berry) var(--level-progress), rgba(36, 48, 79, 0.12) 0);
+}
+
+.level-ring span {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.quest-grid,
+.metric-grid,
+.badge-grid {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0 1.4rem;
+}
+
+.quest-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.badge-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.quest-card,
+.metric-card,
+.badge-card,
+.level-progress-card {
+  background: rgba(255, 255, 255, 0.82);
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  padding: 0.85rem;
+  box-shadow: 0 8px 0 rgba(36, 48, 79, 0.07);
+}
+
+.quest-card {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.quest-card.sun {
+  background: linear-gradient(135deg, #fff4bf, #fffdf7);
+}
+
+.quest-card.mint {
+  background: linear-gradient(135deg, #dffbec, #fffdf7);
+}
+
+.quest-card.sky {
+  background: linear-gradient(135deg, #e7f8ff, #fffdf7);
+}
+
+.quest-icon,
+.badge-symbol {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--blue), var(--berry));
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 900;
+  box-shadow: 0 5px 0 rgba(36, 48, 79, 0.16);
+}
+
+.quest-card strong,
+.metric-card strong,
+.badge-card strong,
+.level-progress-card strong {
+  color: var(--ink);
+}
+
+.quest-card p,
+.badge-card p,
+.level-progress-card p {
+  margin: 0.2rem 0 0.5rem;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.quest-meter,
+.badge-meter {
+  height: 0.52rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(36, 48, 79, 0.1);
+}
+
+.quest-meter span,
+.badge-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--mint), var(--blue));
+}
+
+.metric-card {
+  text-align: center;
+}
+
+.metric-card strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.metric-card span {
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.badge-card {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  opacity: 0.72;
+}
+
+.badge-card.earned {
+  opacity: 1;
+  background: linear-gradient(135deg, #fff4bf, #fff);
+  border-color: rgba(255, 178, 63, 0.45);
+}
+
+.badge-symbol.acorn {
+  background: linear-gradient(135deg, var(--amber), var(--bark));
+}
+
+.badge-symbol.voice {
+  background: linear-gradient(135deg, var(--mint), var(--leaf-deep));
+}
+
+.badge-symbol.phase {
+  background: linear-gradient(135deg, var(--blue), var(--mint));
+}
+
+.phase-track-game {
+  margin-top: 0.7rem;
+}
+
+.game-dashboard,
+.reward-dashboard {
+  display: grid;
+  gap: 1rem;
+}
+
+.game-hero-panel,
+.reward-hero-panel,
+.mission-panel,
+.side-panel,
+.vault-panel,
+.history-panel,
+.reward-board {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, rgba(255, 253, 247, 0.92), rgba(231, 248, 255, 0.86)),
+    radial-gradient(circle at 12% 16%, rgba(255, 230, 109, 0.42), transparent 32%);
+  box-shadow: 0 12px 0 rgba(36, 48, 79, 0.08), 0 26px 44px rgba(36, 48, 79, 0.1);
+}
+
+.game-hero-panel,
+.reward-hero-panel {
+  min-height: 13rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.45fr);
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.reward-hero-panel {
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 0.45fr) auto;
+}
+
+.game-hero-panel::before,
+.reward-hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 auto;
+  width: 38%;
+  height: 54%;
+  background:
+    linear-gradient(135deg, transparent 0 42%, rgba(102, 217, 168, 0.18) 42% 64%, transparent 64%),
+    linear-gradient(45deg, transparent 0 44%, rgba(77, 150, 255, 0.16) 44% 66%, transparent 66%);
+  pointer-events: none;
+}
+
+.game-hero-copy,
+.reward-hero-panel > div {
+  position: relative;
+  z-index: 1;
+}
+
+.game-hero-copy h1,
+.reward-hero-panel h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.95;
+  max-width: 15ch;
+}
+
+.mascot-command {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.8rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 3px solid rgba(255, 209, 102, 0.45);
+  box-shadow: 0 8px 0 rgba(255, 178, 63, 0.18);
+}
+
+.mascot-command img {
+  width: 6.5rem;
+  height: 6.5rem;
+  object-fit: contain;
+  border-radius: 50%;
+  background: #fff7d6;
+  box-shadow: 0 0 0 5px rgba(255, 230, 109, 0.45);
+}
+
+.mascot-command strong,
+.mascot-command p {
+  display: block;
+  margin: 0;
+}
+
+.mascot-command p {
+  margin-top: 0.25rem;
+  color: var(--ink-soft);
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.game-status-strip {
+  display: grid;
+  grid-template-columns: minmax(260px, 1.2fr) repeat(3, minmax(0, 0.8fr));
+  gap: 0.75rem;
+}
+
+.game-level-card {
+  min-width: 0;
+}
+
+.game-board,
+.reward-grid-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 0.34fr);
+  gap: 1rem;
+}
+
+.mission-panel,
+.side-panel,
+.vault-panel,
+.history-panel,
+.reward-board {
+  padding: 1rem;
+}
+
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel-title-row h2,
+.side-panel h2,
+.vault-panel h2,
+.history-panel h2 {
+  margin: 0.15rem 0 0;
+}
+
+.side-panel {
+  display: grid;
+  align-content: start;
+  gap: 0.85rem;
+  background:
+    linear-gradient(135deg, rgba(245, 231, 255, 0.94), rgba(255, 253, 247, 0.9)),
+    radial-gradient(circle at 85% 10%, rgba(185, 87, 255, 0.2), transparent 32%);
+}
+
+.mini-stat-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.homework-card {
+  padding: 0.85rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 3px solid rgba(36, 48, 79, 0.08);
+}
+
+.homework-card p {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--ink-soft);
+  font-weight: 800;
+}
+
+.world-node {
+  position: relative;
+  min-height: 7.5rem;
+}
+
+.world-icon {
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin-bottom: 0.45rem;
+  background: linear-gradient(135deg, var(--blue), var(--berry));
+  color: #fff;
+  font-weight: 900;
+  box-shadow: 0 6px 0 rgba(36, 48, 79, 0.16);
+}
+
+.world-node.done .world-icon {
+  background: linear-gradient(135deg, var(--mint), var(--leaf-deep));
+}
+
+.world-node.current .world-icon {
+  background: linear-gradient(135deg, var(--sun), var(--amber));
+  color: var(--ink);
+}
+
+.vault-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 244, 191, 0.9), rgba(255, 253, 247, 0.92)),
+    radial-gradient(circle at 90% 10%, rgba(255, 178, 63, 0.2), transparent 30%);
+}
+
+.history-panel {
+  background: rgba(255, 253, 247, 0.88);
+}
+
+.mission-list li,
+.acorn-log-panel li {
+  background: rgba(255, 255, 255, 0.62);
+  border-bottom: 0;
+  border-radius: 14px;
+  padding-inline: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.reward-board {
+  display: grid;
+  gap: 0.8rem;
+  background:
+    linear-gradient(135deg, rgba(255, 244, 191, 0.9), rgba(231, 248, 255, 0.86)),
+    radial-gradient(circle at 12% 85%, rgba(102, 217, 168, 0.28), transparent 30%);
+}
+
+.reward-mascot img {
+  width: 5.8rem;
+  height: 5.8rem;
+}
+
+.vault-level {
+  margin: 0;
+}
+
+.fresh-panel {
+  border-color: rgba(255, 178, 63, 0.55);
+}
+
+.trophy-grid-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.trophy-grid-list li {
+  margin: 0;
+  padding: 0.75rem;
+  border: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
 .stat-list,
 .session-list,
 .trophy-list {
@@ -1480,7 +1924,7 @@ textarea:focus {
 
 .reward-summary {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
   margin: 1rem 0 1.5rem;
 }
@@ -1521,6 +1965,30 @@ textarea:focus {
 .trophy-list small {
   color: var(--ink-soft);
   font-weight: 600;
+}
+
+.level-progress-card {
+  margin: 0 0 1.4rem;
+}
+
+.fresh-reward-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.fresh-reward-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff4bf, #fff);
+  border: 3px solid rgba(255, 178, 63, 0.35);
+  box-shadow: 0 7px 0 rgba(255, 178, 63, 0.18);
 }
 
 @keyframes bob {
@@ -1576,6 +2044,31 @@ textarea:focus {
 }
 
 @media (max-width: 980px) {
+  .progress-hero,
+  .rewards-hero {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .game-hero-panel,
+  .reward-hero-panel,
+  .game-board,
+  .reward-grid-layout,
+  .game-status-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .mascot-command {
+    max-width: 100%;
+  }
+
+  .quest-grid,
+  .metric-grid,
+  .badge-grid,
+  .fresh-reward-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .reading-main {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -1611,6 +2104,14 @@ textarea:focus {
 
   .phase-track {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .quest-grid,
+  .metric-grid,
+  .badge-grid,
+  .fresh-reward-list,
+  .reward-summary {
+    grid-template-columns: 1fr;
   }
 
   .grapheme-text {

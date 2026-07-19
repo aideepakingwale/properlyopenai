@@ -62,9 +62,14 @@ export function awardSessionRewards(childId, { jaccardScore = 0 } = {}) {
     .filter((s) => s.status === 'completed').length;
 
   const trophyChecks = [
-    { type: 'trophy_first_story', label: 'First Story Trophy', when: completed + 1 >= 1 },
-    { type: 'trophy_five_stories', label: 'Five Stories Trophy', when: completed + 1 >= 5 },
+    { type: 'trophy_first_story', label: 'First Story Trophy', when: completed >= 1 },
+    { type: 'trophy_five_stories', label: 'Five Stories Trophy', when: completed >= 5 },
+    { type: 'trophy_ten_stories', label: 'Ten Story Trailblazer', when: completed >= 10 },
     { type: 'trophy_phase_star', label: 'Phase Star', when: jaccardScore >= 0.8 },
+    { type: 'trophy_clear_reader', label: 'Clear Reader Badge', when: jaccardScore >= 0.9 },
+    { type: 'trophy_super_listener', label: 'Super Listener Badge', when: completed >= 3 },
+    { type: 'trophy_acorn_collector', label: 'Acorn Collector Badge', when: acorns >= 50 },
+    { type: 'trophy_oak_guardian', label: 'Oak Guardian Badge', when: acorns >= 100 },
   ];
 
   for (const t of trophyChecks) {
