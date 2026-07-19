@@ -6,6 +6,7 @@ import { useAudioSession } from '../hooks/useAudioSession';
 import { usePronunciationCoach } from '../hooks/usePronunciationCoach';
 import GraphemeText from '../components/GraphemeText';
 import MrsOwl from '../components/MrsOwl';
+import MouthCue from '../components/MouthCue';
 import { extractWords, splitSentences } from '@shared/phonicsEngine.js';
 
 export default function Reading() {
@@ -444,6 +445,12 @@ export default function Reading() {
 
         {coach.lesson?.display && (
           <div className="pronounce-panel" aria-live="polite">
+            {(coach.active.ipa || coach.lesson.display.ipa) && (
+              <MouthCue
+                ipa={coach.active.ipa || coach.lesson.display.ipa}
+                grapheme={coach.active.grapheme || coach.lesson.display.grapheme}
+              />
+            )}
             {coach.lesson.type === 'phoneme' && (
               <>
                 <span

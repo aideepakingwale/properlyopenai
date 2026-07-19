@@ -494,6 +494,20 @@ textarea:focus {
   letter-spacing: 0;
 }
 
+.guide {
+  padding: 1rem;
+}
+
+.guide > h1 {
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+}
+
+.guide > p {
+  max-width: 64rem;
+  margin: 0.2rem 0 0.7rem;
+  color: var(--ink-soft);
+}
+
 .quick-links {
   display: flex;
   flex-direction: column;
@@ -1194,6 +1208,7 @@ textarea:focus {
 .pronounce-panel {
   grid-area: pronounce;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.85rem;
   margin: 0.85rem 0;
@@ -1208,6 +1223,259 @@ textarea:focus {
 .pronounce-panel p {
   margin: 0.25rem 0 0;
   color: var(--ink-soft);
+}
+
+.mouth-cue {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  flex: 1 1 18rem;
+  min-width: min(100%, 18rem);
+  padding: 0.65rem;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #fff, #e7f8ff);
+  border: 3px solid rgba(77, 150, 255, 0.16);
+  box-shadow: inset 0 -5px 0 rgba(158, 231, 255, 0.22);
+}
+
+.mouth-art {
+  position: relative;
+  width: 132px;
+  aspect-ratio: 1.4;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fffaf2;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 18px rgba(36, 48, 79, 0.16);
+  isolation: isolate;
+}
+
+.mouth-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform-origin: 50% 58%;
+  animation: mouth-photo-breathe 1.35s ease-in-out infinite;
+}
+
+.motion-ring,
+.motion-arrow,
+.motion-dot {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.motion-ring {
+  inset: 32% 25% 22%;
+  border: 3px solid rgba(255, 190, 11, 0.78);
+  border-radius: 999px;
+  box-shadow: 0 0 0 5px rgba(255, 190, 11, 0.14);
+  animation: motion-ring 1.2s ease-in-out infinite;
+}
+
+.motion-arrow {
+  width: 2rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blue), var(--berry));
+  box-shadow: 0 4px 10px rgba(36, 48, 79, 0.2);
+}
+
+.motion-arrow::after {
+  content: "";
+  position: absolute;
+  right: -0.28rem;
+  top: 50%;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-top: 0.42rem solid var(--berry);
+  border-right: 0.42rem solid var(--berry);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.motion-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--blue);
+  opacity: 0;
+}
+
+.arrow-main {
+  left: 18%;
+  top: 55%;
+  animation: arrow-slide-right 1.05s ease-in-out infinite;
+}
+
+.arrow-second {
+  right: 18%;
+  top: 43%;
+  transform: rotate(180deg);
+  animation: arrow-slide-left 1.05s ease-in-out infinite;
+}
+
+.dot-one {
+  left: 63%;
+  top: 48%;
+}
+
+.dot-two {
+  left: 71%;
+  top: 42%;
+  animation-delay: 0.12s;
+}
+
+.dot-three {
+  left: 75%;
+  top: 57%;
+  animation-delay: 0.24s;
+}
+
+.mouth-motion-teeth-down .arrow-main,
+.mouth-motion-tongue-up .arrow-main,
+.mouth-motion-open-down .arrow-main,
+.mouth-motion-back-sound .arrow-main {
+  left: 47%;
+  top: 22%;
+  transform: rotate(90deg);
+  animation-name: arrow-slide-down;
+}
+
+.mouth-motion-tongue-up .arrow-main,
+.mouth-motion-back-sound .arrow-main {
+  top: 63%;
+  transform: rotate(-90deg);
+  animation-name: arrow-slide-up;
+}
+
+.mouth-motion-tongue-forward .arrow-main,
+.mouth-motion-air-out .arrow-main {
+  left: 54%;
+  top: 50%;
+  animation-name: arrow-slide-right;
+}
+
+.mouth-motion-round-in .arrow-main {
+  left: 19%;
+  top: 50%;
+}
+
+.mouth-motion-round-in .arrow-second {
+  display: block;
+}
+
+.mouth-motion-smile-wide .arrow-main {
+  left: 15%;
+  top: 50%;
+  transform: rotate(180deg);
+  animation-name: arrow-slide-left;
+}
+
+.mouth-motion-smile-wide .arrow-second {
+  right: 15%;
+  top: 50%;
+  transform: rotate(0deg);
+  animation-name: arrow-slide-right;
+}
+
+.mouth-motion-teeth-down .arrow-second,
+.mouth-motion-tongue-forward .arrow-second,
+.mouth-motion-tongue-up .arrow-second,
+.mouth-motion-open-down .arrow-second,
+.mouth-motion-air-out .arrow-second,
+.mouth-motion-back-sound .arrow-second {
+  display: none;
+}
+
+.mouth-motion-air-out .motion-dot,
+.mouth-motion-teeth-down .motion-dot,
+.mouth-motion-tongue-forward .motion-dot {
+  animation: air-puff 1.1s ease-in-out infinite;
+}
+
+.mouth-motion-press-pop .motion-ring {
+  animation-name: motion-pop-ring;
+}
+
+.mouth-motion-round-in .motion-ring {
+  inset: 31% 34% 25%;
+}
+
+.mouth-motion-smile-wide .motion-ring {
+  inset: 36% 18% 28%;
+}
+
+.mouth-copy {
+  min-width: 0;
+}
+
+.mouth-ipa {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.7rem;
+  min-height: 2rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--blue), var(--berry));
+  color: #fff;
+  font-weight: 900;
+  margin-bottom: 0.35rem;
+}
+
+.mouth-copy strong,
+.mouth-copy small {
+  display: block;
+}
+
+.mouth-copy p {
+  color: var(--ink-soft);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.mouth-copy small {
+  color: var(--bark);
+  font-weight: 900;
+}
+
+.phonics-mouth-stage {
+  margin: 0.9rem 0 1rem;
+  max-width: 42rem;
+  padding: 0.7rem;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 20%, rgba(255, 217, 102, 0.26), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(231, 248, 255, 0.9));
+  border: 3px solid rgba(142, 96, 255, 0.18);
+  box-shadow: 0 14px 30px rgba(36, 48, 79, 0.12);
+}
+
+.phonics-mouth-stage .mouth-cue {
+  width: 100%;
+}
+
+.mouth-stage-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin: 0 0 0.45rem;
+  color: var(--berry);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mouth-stage-label small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .pronounce-tile {
@@ -1276,18 +1544,96 @@ textarea:focus {
 
 .guide h3 {
   font-family: var(--font-display);
-  margin: 1.4rem 0 0.35rem;
+  margin: 0 0 0.45rem;
   color: #8b35dc;
 }
 
+.phonics-learn {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.72fr) minmax(0, 1.28fr);
+  gap: 0.9rem;
+  align-items: start;
+}
+
 .guide .mrs-owl {
-  top: 5.4rem;
-  margin-bottom: 1.25rem;
+  position: static;
+  top: auto;
+  margin: 0;
   padding: 0.65rem;
-  border-radius: 28px;
-  background: rgba(255, 253, 247, 0.78);
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 16px 34px rgba(36, 48, 79, 0.12);
+  border-radius: 22px;
+  background: rgba(255, 253, 247, 0.92);
+  border: 3px solid rgba(255, 213, 102, 0.32);
+  box-shadow: 0 10px 20px rgba(36, 48, 79, 0.1);
+}
+
+.guide .mrs-owl .owl-avatar {
+  width: 76px;
+  height: 76px;
+}
+
+.guide .mrs-owl .owl-bubble {
+  padding: 0.75rem;
+}
+
+.phonics-coach-panel {
+  position: sticky;
+  top: 5.15rem;
+  display: grid;
+  gap: 0.7rem;
+  max-height: calc(100vh - 6rem);
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(255, 230, 109, 0.32), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(231, 248, 255, 0.9));
+  border: 3px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 18px 36px rgba(36, 48, 79, 0.13);
+  z-index: 12;
+}
+
+.phonics-sound-board {
+  min-width: 0;
+  padding: 0.85rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 3px solid rgba(255, 255, 255, 0.82);
+}
+
+.guide-board-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.guide-board-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.guide-board-head p {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+}
+
+.guide-board-head .phase-tabs {
+  justify-content: flex-end;
+  min-width: 13rem;
+}
+
+.phonics-group {
+  padding: 0.75rem;
+  margin: 0 0 0.75rem;
+  border-radius: 20px;
+  background: rgba(255, 253, 247, 0.76);
+  border: 2px solid rgba(36, 48, 79, 0.06);
+}
+
+.phonics-stop {
+  width: 100%;
 }
 
 .section-note {
@@ -1297,10 +1643,10 @@ textarea:focus {
 }
 
 .cache-status {
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--leaf-deep);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0;
 }
 
 .phonics-word {
@@ -1395,9 +1741,9 @@ textarea:focus {
 
 .tile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(122px, 1fr));
-  gap: 0.9rem;
-  margin: 1rem 0;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 0.55rem;
+  margin: 0;
   position: relative;
   z-index: 0;
 }
@@ -1405,12 +1751,12 @@ textarea:focus {
 .phone-tile {
   background: #fff;
   border: 3px solid;
-  border-radius: 20px;
-  padding: 0.75rem;
+  border-radius: 16px;
+  padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  box-shadow: 0 8px 0 rgba(36, 48, 79, 0.08);
+  gap: 0.12rem;
+  box-shadow: 0 5px 0 rgba(36, 48, 79, 0.08);
   animation: pop 0.45s ease both;
   position: relative;
   z-index: 0;
@@ -1419,19 +1765,20 @@ textarea:focus {
 .phone-tile .g {
   color: #fff;
   font-weight: 800;
-  font-size: 1.45rem;
-  border-radius: 12px;
+  font-size: 1.22rem;
+  border-radius: 10px;
   text-align: center;
-  padding: 0.2rem;
+  padding: 0.14rem 0.2rem;
 }
 
 .phone-tile .ipa {
   font-weight: 800;
   color: var(--ink-soft);
+  font-size: 0.82rem;
 }
 
 .phone-tile .name {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--bark);
 }
 
@@ -2023,6 +2370,105 @@ textarea:focus {
   }
 }
 
+@keyframes mouth-photo-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+@keyframes motion-ring {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes motion-pop-ring {
+  0% {
+    opacity: 0.45;
+    transform: scaleX(1) scaleY(0.78);
+  }
+  45% {
+    opacity: 1;
+    transform: scaleX(0.86) scaleY(0.72);
+  }
+  100% {
+    opacity: 0.55;
+    transform: scaleX(1.08) scaleY(1);
+  }
+}
+
+@keyframes arrow-slide-right {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: translateX(-0.35rem);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(0.35rem);
+  }
+}
+
+@keyframes arrow-slide-left {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: translateX(0.35rem) rotate(180deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-0.35rem) rotate(180deg);
+  }
+}
+
+@keyframes arrow-slide-down {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: translateY(-0.32rem) rotate(90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0.32rem) rotate(90deg);
+  }
+}
+
+@keyframes arrow-slide-up {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: translateY(0.32rem) rotate(-90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-0.32rem) rotate(-90deg);
+  }
+}
+
+@keyframes air-puff {
+  0% {
+    opacity: 0;
+    transform: translate(-0.35rem, 0.15rem) scale(0.7);
+  }
+  45% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(1rem, -0.2rem) scale(1.2);
+  }
+}
+
 @media (max-width: 1180px) {
   .reading > .mrs-owl {
     flex-direction: row;
@@ -2138,6 +2584,34 @@ textarea:focus {
 
   .listen-action-card {
     min-height: 4.75rem;
+  }
+
+  .phonics-learn {
+    grid-template-columns: 1fr;
+  }
+
+  .phonics-coach-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .guide-board-head {
+    flex-direction: column;
+  }
+
+  .guide-board-head .phase-tabs {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .mouth-cue {
+    grid-template-columns: 1fr;
+  }
+
+  .mouth-art {
+    width: min(100%, 160px);
+    justify-self: center;
   }
 
   .topbar nav {

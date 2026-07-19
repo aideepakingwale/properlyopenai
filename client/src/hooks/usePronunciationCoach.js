@@ -20,6 +20,8 @@ export function usePronunciationCoach() {
     tileIndex: -1,
     sentenceIndex: -1,
     mode: null,
+    ipa: null,
+    grapheme: '',
   });
   const [lesson, setLesson] = useState(null);
   const timersRef = useRef([]);
@@ -43,7 +45,7 @@ export function usePronunciationCoach() {
       window.speechSynthesis.cancel();
     }
     setSpeaking(false);
-    setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
+    setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null, ipa: null, grapheme: '' });
   }, []);
 
   useEffect(() => () => stop(), [stop]);
@@ -160,6 +162,8 @@ export function usePronunciationCoach() {
                 tileIndex: step.tileIndex ?? 0,
                 sentenceIndex: stepSentenceIndex,
                 mode: hearMode,
+                ipa: step.ipa,
+                grapheme: step.grapheme || '',
               });
               setMessage(`Sound: /${step.ipa}/`);
               await playCachedPhoneme(step.ipa);
@@ -173,6 +177,8 @@ export function usePronunciationCoach() {
                 tileIndex: step.tileIndex ?? 0,
                 sentenceIndex: stepSentenceIndex,
                 mode: hearMode,
+                ipa: step.ipa || null,
+                grapheme: step.grapheme || '',
               });
               await playBrowserSpeech(step.speak, 0.95);
               continue;
@@ -184,6 +190,8 @@ export function usePronunciationCoach() {
                 tileIndex: -1,
                 sentenceIndex: stepSentenceIndex,
                 mode: hearMode,
+                ipa: null,
+                grapheme: '',
               });
               setMessage(`Word: ${step.speak}`);
               await playBrowserSpeech(step.speak, 0.88);
@@ -197,6 +205,8 @@ export function usePronunciationCoach() {
                 tileIndex: -1,
                 sentenceIndex: stepSentenceIndex,
                 mode: hearMode,
+                ipa: null,
+                grapheme: '',
               });
               setMessage(`Sentence: ${step.speak}`);
               await playBrowserSpeech(step.speak, 0.9);
@@ -206,7 +216,7 @@ export function usePronunciationCoach() {
 
           if (!cancelledRef.current) {
             setSpeaking(false);
-            setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
+            setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null, ipa: null, grapheme: '' });
             setMessage(guide.message);
           }
           return;
@@ -219,7 +229,7 @@ export function usePronunciationCoach() {
             if (cancelledRef.current) return;
             if (step.kind === 'word') {
               const wi = resolveWordIndex(target, step, baseWordIndex);
-              setActive({ wordIndex: wi, tileIndex: -1, sentenceIndex, mode });
+              setActive({ wordIndex: wi, tileIndex: -1, sentenceIndex, mode, ipa: null, grapheme: '' });
             }
           }, t);
           timersRef.current.push(id);
@@ -228,14 +238,14 @@ export function usePronunciationCoach() {
         const doneId = setTimeout(() => {
           if (cancelledRef.current) return;
           setSpeaking(false);
-          setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
+          setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null, ipa: null, grapheme: '' });
         }, t + 80);
         timersRef.current.push(doneId);
         await playBrowserSpeech(guide.speakText || target.text || '', 0.92);
       } catch (err) {
         setMessage(err.message || 'Mrs Owl could not say that just now. Try again!');
         setSpeaking(false);
-        setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null });
+        setActive({ wordIndex: -1, tileIndex: -1, sentenceIndex: -1, mode: null, ipa: null, grapheme: '' });
       }
     },
     [stop],
