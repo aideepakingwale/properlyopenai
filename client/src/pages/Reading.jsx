@@ -589,7 +589,7 @@ export default function Reading() {
             <div className="level-fill" style={{ width: `${Math.min(100, levelPct(audio.level))}%` }} />
           </div>
           <p className="status-line">
-            Mic: {audio.status}
+            Mic: {audio.displayStatus}
             {audio.connected ? '' : ' (connecting…)'}
             {assessment?.path ? ` · path: ${assessment.path}` : ''}
           </p>

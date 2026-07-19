@@ -16,6 +16,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   const chunksRef = useRef([]);
   const mimeRef = useRef('audio/webm');
   const attemptRef = useRef(0);
+  const recordingRef = useRef(false);
+  const preparingRef = useRef(false);
   const [connected, setConnected] = useState(false);
   const [recording, setRecording] = useState(false);
   const [preparing, setPreparing] = useState(false);
@@ -28,6 +30,12 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   const cleanupLoop = () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+  };
+
+  const setIdleStatus = (nextStatus) => {
+    if (!recordingRef.current && !preparingRef.current) {
+      setStatus(nextStatus);
+    }
   };
 
   const stopSpeechRecognition = () => {
@@ -52,8 +60,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
 
     ws.onopen = () => {
       setConnected(true);
-      setStatus('connected');
-      if (sessionId) {
+      setIdleStatus('connected');
+      if (sessionId && !recordingRef.current && !preparingRef.current) {
         ws.send(
           JSON.stringify({
             type: 'start',
@@ -66,7 +74,7 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
 
     ws.onclose = () => {
       setConnected(false);
-      setStatus('reconnecting');
+      setIdleStatus('reconnecting');
       setTimeout(() => connect(), 1500);
     };
 
@@ -95,12 +103,12 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
         }
         if (msg.type === 'quality_ack') onQuality?.(msg);
         if (msg.type === 'error') {
-          setStatus('error');
           setLastMessage(msg.message || 'Audio error');
+          setIdleStatus('error');
         }
         if (msg.message && msg.type !== 'ping') setLastMessage(msg.message);
-        if (msg.type === 'degraded') setStatus('degraded');
-        if (msg.type === 'recovered') setStatus('connected');
+        if (msg.type === 'degraded') setIdleStatus('degraded');
+        if (msg.type === 'recovered') setIdleStatus('connected');
       } catch {
         /* ignore */
       }
@@ -121,6 +129,14 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
       stopSpeechRecognition();
     };
   }, [connect]);
+
+  useEffect(() => {
+    recordingRef.current = recording;
+  }, [recording]);
+
+  useEffect(() => {
+    preparingRef.current = preparing;
+  }, [preparing]);
 
   const sendInterim = useCallback((transcript) => {
     if (wsRef.current?.readyState === 1) {
@@ -160,7 +176,13 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
   }, [sendInterim]);
 
   useEffect(() => {
-    if (connected && sessionId && wsRef.current?.readyState === 1) {
+    if (
+      connected &&
+      sessionId &&
+      wsRef.current?.readyState === 1 &&
+      !recordingRef.current &&
+      !preparingRef.current
+    ) {
       wsRef.current.send(
         JSON.stringify({
           type: 'start',
@@ -192,6 +214,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     attemptRef.current += 1;
     chunksRef.current = [];
     setLiveTranscript('');
+    recordingRef.current = false;
+    preparingRef.current = true;
     setPreparing(true);
     setStatus('getting-ready');
 
@@ -202,6 +226,7 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
       });
       mediaRef.current = stream;
     } catch (err) {
+      preparingRef.current = false;
       setPreparing(false);
       setStatus('error');
       setLastMessage(err?.message || 'Microphone permission was not granted.');
@@ -242,6 +267,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
 
     recorder.onstart = () => {
       startSpeechRecognition();
+      preparingRef.current = false;
+      recordingRef.current = true;
       setPreparing(false);
       setRecording(true);
       setStatus('recording');
@@ -249,6 +276,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     };
 
     recorder.onerror = () => {
+      preparingRef.current = false;
+      recordingRef.current = false;
       setPreparing(false);
       setRecording(false);
       setStatus('error');
@@ -279,6 +308,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     try {
       recorder.start(250);
     } catch (err) {
+      preparingRef.current = false;
+      recordingRef.current = false;
       setPreparing(false);
       setRecording(false);
       setStatus('error');
@@ -306,6 +337,8 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     cleanupLoop();
     stopSpeechRecognition();
     const recorder = recorderRef.current;
+    preparingRef.current = false;
+    recordingRef.current = false;
     setPreparing(false);
     setRecording(false);
     setStatus('processing');
@@ -367,6 +400,7 @@ export function useAudioSession({ sessionId, onAssessment, onFinal, onQuality })
     recording,
     preparing,
     readyToSpeak: recording && status === 'recording',
+    displayStatus: preparing ? 'getting ready' : recording ? 'recording' : status,
     level,
     status,
     lastMessage,
