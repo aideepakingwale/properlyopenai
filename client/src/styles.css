@@ -894,6 +894,22 @@ textarea:focus {
   font-weight: 700;
 }
 
+.live-progress {
+  height: 0.55rem;
+  margin: 0 0 0.6rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(36, 48, 79, 0.1);
+}
+
+.live-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--mint));
+  transition: width 0.18s ease;
+}
+
 .live-word-list {
   display: flex;
   flex-wrap: wrap;
