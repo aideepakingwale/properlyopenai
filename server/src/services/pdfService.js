@@ -21,11 +21,12 @@ const TILE = {
   wordGap: 5,
 };
 
-const PDF_VERSION = 'v7-deepak-website';
+const PDF_VERSION = 'v8-mrs-owl-brand-image';
 const COPYRIGHT_OWNER = 'Deepak Ingwale';
 const COPYRIGHT_WEBSITE = 'https://www.deepakingwale.com';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OWL_WATERMARK = path.resolve(__dirname, '../../../client/public/images/mrs-owl-realistic.png');
+const BOOK_BRAND = "Mrs Owl's Properly Book";
 
 /**
  * Generate an A4 storybook PDF with the story picture, readable text, and
@@ -38,7 +39,8 @@ export async function generateStoryPdf(story) {
   const filepath = path.join(dir, filename);
   const metaPath = `${filepath}.json`;
   const imagePath = await resolvePdfImage(story.illustrationUrl);
-  const watermarkPath = await resolvePdfAssetImage(OWL_WATERMARK, 'mrs-owl-watermark', 180, 52);
+  const watermarkPath = await resolvePdfAssetImage(OWL_WATERMARK, 'mrs-owl-watermark', 190, 58);
+  const brandPath = await resolvePdfAssetImage(OWL_WATERMARK, 'mrs-owl-book-brand', 96, 68);
 
   await new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: PAGE.margin, autoFirstPage: true });
@@ -48,7 +50,7 @@ export async function generateStoryPdf(story) {
     drawWatermark(doc, watermarkPath);
     doc.on('pageAdded', () => drawWatermark(doc, watermarkPath));
 
-    drawHeader(doc, story, imagePath);
+    drawHeader(doc, story, imagePath, brandPath);
     drawStoryText(doc, story);
     drawPhonicsCards(doc, story);
     drawFooter(doc);
@@ -162,27 +164,30 @@ async function resolvePdfAssetImage(local, name, size, quality) {
   return converted;
 }
 
-function drawHeader(doc, story, imagePath) {
+function drawHeader(doc, story, imagePath, brandPath) {
   const imageSize = imagePath ? 126 : 0;
   const imageX = PAGE.width - PAGE.margin - imageSize;
   const textWidth = imagePath ? imageX - PAGE.margin - 18 : PAGE.width - PAGE.margin * 2;
+  const titleY = PAGE.margin + 44;
+
+  drawBookBrand(doc, brandPath, PAGE.margin, PAGE.margin, textWidth);
 
   font(doc, 'bold').fontSize(9).fillColor('#8B35DC').text(
     `PHASE ${story.phase || 2} · ${(story.theme || 'story').toUpperCase()}`,
     PAGE.margin,
-    PAGE.margin,
+    titleY,
     { width: textWidth },
   );
 
   font(doc, 'bold').fontSize(24).fillColor('#25315A').text(
     story.title || 'My Story',
     PAGE.margin,
-    PAGE.margin + 18,
+    titleY + 18,
     { width: textWidth, lineGap: 2 },
   );
 
   font(doc).fontSize(8).fillColor('#6B705C').text(
-    'Properly · AI phonics coach · UK Letters and Sounds practice sheet',
+    'Properly - AI phonics coach - UK Letters and Sounds reading book',
     PAGE.margin,
     doc.y + 8,
     { width: textWidth },
@@ -206,6 +211,34 @@ function drawHeader(doc, story, imagePath) {
   }
 
   doc.y = Math.max(doc.y, PAGE.margin + imageSize + 22);
+}
+
+function drawBookBrand(doc, brandPath, x, y, width) {
+  const size = 34;
+  if (brandPath && fs.existsSync(brandPath)) {
+    doc.save();
+    doc.circle(x + size / 2, y + size / 2, size / 2).clip();
+    doc.image(brandPath, x, y, {
+      fit: [size, size],
+      align: 'center',
+      valign: 'center',
+    });
+    doc.restore();
+    doc.circle(x + size / 2, y + size / 2, size / 2).lineWidth(1.4).stroke('#FFD166');
+  }
+
+  const textX = brandPath ? x + size + 9 : x;
+  const textWidth = Math.max(80, width - (textX - x));
+  font(doc, 'bold').fontSize(13).fillColor('#0D6B52').text(BOOK_BRAND, textX, y + 3, {
+    width: textWidth,
+    lineBreak: false,
+  });
+  font(doc).fontSize(8).fillColor('#6B705C').text(
+    `Guided phonics reading - (C) ${new Date().getFullYear()} ${COPYRIGHT_OWNER}`,
+    textX,
+    y + 20,
+    { width: textWidth, lineBreak: false },
+  );
 }
 
 function drawStoryText(doc, story) {
@@ -328,19 +361,19 @@ function uniqueWords(words) {
 function drawWatermark(doc, watermarkPath) {
   doc.save();
   if (watermarkPath && fs.existsSync(watermarkPath)) {
-    doc.opacity(0.12);
-    doc.image(watermarkPath, PAGE.width / 2 - 74, PAGE.height / 2 - 104, {
-      fit: [148, 148],
+    doc.opacity(0.18);
+    doc.image(watermarkPath, PAGE.width / 2 - 86, PAGE.height / 2 - 124, {
+      fit: [172, 172],
       align: 'center',
       valign: 'center',
     });
   }
-  doc.opacity(0.085);
+  doc.opacity(0.075);
   font(doc, 'bold')
-    .fontSize(56)
+    .fontSize(42)
     .fillColor('#25315A')
     .rotate(-28, { origin: [PAGE.width / 2, PAGE.height / 2] })
-    .text('Properly', PAGE.margin, PAGE.height / 2 - 12, {
+    .text(BOOK_BRAND, PAGE.margin, PAGE.height / 2 + 6, {
       width: contentWidth(),
       align: 'center',
     });

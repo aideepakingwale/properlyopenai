@@ -13,3 +13,9 @@ Thumbs.db
 coverage/
 /artifacts/devpost-demo
 scripts/record-devpost-demo.mjs
+artifacts/voiceover/smoke-test.wav
+scripts/__pycache__/local_tts_gui.cpython-313.pyc
+scripts/local_tts_gui.py
+artifacts/architecture/properly-technical-architecture.svg
+/artifacts
+/tmp
