@@ -1,5 +1,6 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
+import MouthCuePopup from './MouthCuePopup.jsx';
 
 const PRODUCT_VERSION = '1.0.0';
 const COPYRIGHT_OWNER = 'Deepak Ingwale';
@@ -52,6 +53,7 @@ export default function Layout({ children }) {
         )}
       </header>
       <main className={mainClass}>{children}</main>
+      <MouthCuePopup />
       <footer className="app-footer">
         <span>Properly v{PRODUCT_VERSION}</span>
         <span aria-hidden="true">·</span>

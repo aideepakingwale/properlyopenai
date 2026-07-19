@@ -6,6 +6,7 @@ import {
   preloadAllPhonemes,
   isPhonemeCacheReady,
 } from '../audio/phonemeCache.js';
+import { showMouthCue } from '../utils/phonemeCueEvents.js';
 
 /**
  * Mrs Owl pronunciation coach.
@@ -166,6 +167,12 @@ export function usePronunciationCoach() {
                 grapheme: step.grapheme || '',
               });
               setMessage(`Sound: /${step.ipa}/`);
+              showMouthCue({
+                ipa: step.ipa,
+                grapheme: step.grapheme || '',
+                source: target.type || 'coach',
+                durationMs: 1800,
+              });
               await playCachedPhoneme(step.ipa);
               await pause(90);
               continue;

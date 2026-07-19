@@ -35,7 +35,7 @@ export default function PhonicsLearn({
   const hearPhoneme = async (ipa, grapheme = null) => {
     setActiveIpa(ipa);
     setActiveGrapheme(grapheme);
-    const meta = await player.play(ipa);
+    const meta = await player.play(ipa, { grapheme, source: 'guide' });
     setOwl(
       `/${ipa}/ — ${meta?.cue || 'Listen and copy.'}${
         meta?.exampleWords?.length ? ` Examples: ${meta.exampleWords.join(', ')}.` : ''
@@ -48,9 +48,10 @@ export default function PhonicsLearn({
     await hearPhoneme(analysed.ipa, grapheme);
   };
 
-  const hearBlend = async (ipa) => {
+  const hearBlend = async (ipa, grapheme = '') => {
     setActiveIpa(ipa);
-    const meta = await player.playWithBlend(ipa);
+    setActiveGrapheme(grapheme || null);
+    const meta = await player.playWithBlend(ipa, { grapheme, source: 'guide' });
     setOwl(
       meta.blend?.length > 1
         ? `Blend ${meta.blend.map((b) => `/${b}/`).join(' + ')} → /${ipa}/`
@@ -72,7 +73,7 @@ export default function PhonicsLearn({
         className={`phone-tile clickable-tile ${playing ? 'tile-playing' : ''}`}
         style={{ borderColor: color }}
         onClick={() => (t.grapheme ? hearGpc(t.grapheme) : hearPhoneme(ipa))}
-        onDoubleClick={() => hearBlend(ipa)}
+        onDoubleClick={() => hearBlend(ipa, grapheme)}
         title={`Play cached /${ipa}/ — double-tap for blend parts`}
       >
         <span className="g" style={{ background: color }}>

@@ -30,7 +30,7 @@ export default function PhonicsWord({
     stopSpeech();
     setHearingWord(false);
     setActiveTile(tile.index);
-    await player.play(tile.ipa);
+    await player.play(tile.ipa, { grapheme: tile.grapheme, source: 'word-tile' });
     setActiveTile(-1);
   };
 
@@ -44,6 +44,12 @@ export default function PhonicsWord({
         ? analysis.phonemes
         : analysis.tiles.map((t) => t.ipa);
       await player.playSequence(ipas, {
+        cueSteps: ipas.map((ipa, i) => ({
+          ipa,
+          grapheme:
+            analysis.tiles[Math.min(i, Math.max(0, analysis.tiles.length - 1))]?.grapheme || '',
+          source: 'word-sequence',
+        })),
         onStep: (i) => {
           // Map phoneme step onto a visible tile (extras land on last tile)
           const tileIndex = Math.min(i, Math.max(0, analysis.tiles.length - 1));

@@ -8,6 +8,7 @@ import {
   getCachedPhonemeCount,
 } from '../audio/phonemeCache.js';
 import { ALL_IPA, getPhonemeCue } from '@shared/phonicsEngine.js';
+import { showMouthCue } from '../utils/phonemeCueEvents.js';
 
 /**
  * usePhonemePlayer — plays preloaded real British English phoneme recordings
@@ -57,11 +58,12 @@ export function usePhonemePlayer({ autoload = true } = {}) {
    * @param {string} ipa
    */
   const play = useCallback(
-    async (ipa) => {
+    async (ipa, cue = {}) => {
       cancelled.current = false;
       if (!ready) await preload();
       setPlayingIpa(ipa);
       setPlayingIndex(-1);
+      showMouthCue({ ipa, grapheme: cue.grapheme || '', source: cue.source || 'phoneme' });
       try {
         await playCachedPhoneme(ipa);
       } finally {
@@ -79,7 +81,7 @@ export function usePhonemePlayer({ autoload = true } = {}) {
    * @param {string[]} ipas
    */
   const playSequence = useCallback(
-    async (ipas, { gapMs = 100, onStep } = {}) => {
+    async (ipas, { gapMs = 100, onStep, cueSteps = [] } = {}) => {
       cancelled.current = false;
       if (!ready) await preload();
       try {
@@ -89,6 +91,12 @@ export function usePhonemePlayer({ autoload = true } = {}) {
             if (cancelled.current) return;
             setPlayingIndex(i);
             setPlayingIpa(ipa);
+            showMouthCue({
+              ipa,
+              grapheme: cueSteps[i]?.grapheme || '',
+              source: cueSteps[i]?.source || 'sequence',
+              durationMs: Math.max(1200, gapMs + 900),
+            });
             onStep?.(i, ipa);
           },
         });
@@ -107,14 +115,14 @@ export function usePhonemePlayer({ autoload = true } = {}) {
    * @param {string} ipa
    */
   const playWithBlend = useCallback(
-    async (ipa) => {
+    async (ipa, cue = {}) => {
       const meta = getPhonemeCue(ipa);
       const blend = meta.blend || [ipa];
       if (blend.length > 1) {
         await playSequence(blend, { gapMs: 80 });
         if (cancelled.current) return meta;
       }
-      await play(ipa);
+      await play(ipa, cue);
       return meta;
     },
     [play, playSequence],
