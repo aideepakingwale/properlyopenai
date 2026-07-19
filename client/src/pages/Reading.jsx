@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
 import { useAppStore } from '../store';
@@ -25,10 +25,14 @@ export default function Reading() {
       : 'Tap a coloured letter, a word, or a sentence — Mrs Owl will show you how to say it!',
   );
   const [assessment, setAssessment] = useState(null);
+  const [liveAssessment, setLiveAssessment] = useState(null);
   const [manualTranscript, setManualTranscript] = useState('');
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState('');
   const [selectedSentence, setSelectedSentence] = useState(isPractice ? 0 : -1);
+  const [autoStopping, setAutoStopping] = useState(false);
+  const autoStopRef = useRef(false);
+  const stopRecordingRef = useRef(null);
 
   const coach = usePronunciationCoach();
 
@@ -55,7 +59,7 @@ export default function Reading() {
   const expectedForAssess = activeSentence?.text || story?.text || '';
 
   const onAssessment = useCallback((msg) => {
-    setAssessment(msg);
+    setLiveAssessment(msg);
     if (msg.encourage) setOwl(msg.encourage);
   }, []);
 
@@ -63,6 +67,7 @@ export default function Reading() {
     async (msg) => {
       const passed = Boolean(msg.passed ?? msg.validation?.passed);
       const normalized = { ...msg, passed };
+      setLiveAssessment(null);
       setAssessment(normalized);
       if (msg.transcript) setManualTranscript(msg.transcript);
       setFeedback(normalized);
@@ -103,6 +108,10 @@ export default function Reading() {
     onQuality,
   });
 
+  useEffect(() => {
+    stopRecordingRef.current = audio.stopRecording;
+  }, [audio.stopRecording]);
+
   // Keep live assessment focused on the selected sentence
   useEffect(() => {
     if (!audio.setExpectedText) return;
@@ -114,6 +123,35 @@ export default function Reading() {
       setSelectedSentence(0);
     }
   }, [isPractice, sentences.length, selectedSentence]);
+
+  useEffect(() => {
+    if (!audio.recording) {
+      autoStopRef.current = false;
+      setAutoStopping(false);
+      return undefined;
+    }
+
+    const expectedWordsForStop = extractWords(expectedForAssess);
+    const heardWordsForStop = extractWords(audio.liveTranscript);
+    if (
+      autoStopRef.current ||
+      !readingLooksComplete(expectedWordsForStop, heardWordsForStop)
+    ) {
+      return undefined;
+    }
+
+    autoStopRef.current = true;
+    setAutoStopping(true);
+    setOwl('I heard the line. Checking your reading now...');
+    const timer = window.setTimeout(() => {
+      stopRecordingRef.current?.({
+        typedTranscript: '',
+        allowTypedFallback: false,
+        expectedText: expectedForAssess,
+      });
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [audio.recording, audio.liveTranscript, expectedForAssess]);
 
   const hearPhoneme = (payload) => {
     setOwl(`Listen carefully to /${payload.ipa}/…`);
@@ -140,6 +178,7 @@ export default function Reading() {
     setSelectedSentence(sentence.index);
     setManualTranscript('');
     setAssessment(null);
+    setLiveAssessment(null);
     setOwl(`Sentence ${sentence.index + 1} ready — hear sounds, words, or the line, then read aloud.`);
   };
 
@@ -151,6 +190,7 @@ export default function Reading() {
     setSelectedSentence(sentence.index);
     setManualTranscript('');
     setAssessment(null);
+    setLiveAssessment(null);
     const words = extractWords(sentence.text);
     const localIndexes = words.map((_, i) => i);
     const tips = {
@@ -270,6 +310,16 @@ export default function Reading() {
       ? 'Reused story picture'
       : 'Fresh story picture';
   const liveWords = extractWords(audio.liveTranscript).slice(-14);
+  const expectedWords = extractWords(expectedForAssess);
+  const heardWords = extractWords(audio.liveTranscript);
+  const liveProgress = expectedWords.length
+    ? Math.min(100, Math.round((countWordsInOrder(expectedWords, heardWords) / expectedWords.length) * 100))
+    : 0;
+  const liveScore =
+    liveAssessment?.validation?.displayScore ??
+    (liveAssessment?.validation
+      ? Math.round((liveAssessment.validation.combined || 0) * 100)
+      : null);
   const currentScore =
     assessment?.validation?.displayScore ??
     (assessment?.validation ? Math.round((assessment.validation.combined || 0) * 100) : null);
@@ -547,7 +597,16 @@ export default function Reading() {
             <div className="live-heard-panel" aria-live="polite">
               <div className="live-heard-head">
                 <strong>Words I heard</strong>
-                <span>{audio.speechSupported ? 'live guide' : 'final score after stop'}</span>
+                <span>
+                  {autoStopping
+                    ? 'checking'
+                    : liveScore != null
+                      ? `${liveScore}% live`
+                      : `${liveProgress}% heard`}
+                </span>
+              </div>
+              <div className="live-progress" aria-hidden="true">
+                <span style={{ width: `${liveProgress}%` }} />
               </div>
               {liveWords.length ? (
                 <div className="live-word-list">
@@ -586,6 +645,7 @@ export default function Reading() {
             ) : (
               <button
                 className="btn danger"
+                disabled={autoStopping}
                 onClick={() =>
                   audio.stopRecording({
                     typedTranscript: '',
@@ -594,7 +654,7 @@ export default function Reading() {
                   })
                 }
               >
-                Stop & assess
+                {autoStopping ? 'Checking...' : 'Stop & assess'}
               </button>
             )}
             {story.id && (
@@ -727,4 +787,25 @@ function wordScoreMark(status) {
   if (status === 'exact') return '✓';
   if (status === 'close') return '~';
   return '!';
+}
+
+function countWordsInOrder(expectedWords, heardWords) {
+  if (!expectedWords.length || !heardWords.length) return 0;
+  let cursor = 0;
+  for (const heard of heardWords) {
+    if (heard === expectedWords[cursor]) cursor += 1;
+    if (cursor >= expectedWords.length) break;
+  }
+  return cursor;
+}
+
+function readingLooksComplete(expectedWords, heardWords) {
+  if (!expectedWords.length || !heardWords.length) return false;
+  const expectedCount = expectedWords.length;
+  const lastExpected = expectedWords[expectedCount - 1];
+  const recentHeard = heardWords.slice(-3);
+  const orderedCount = countWordsInOrder(expectedWords, heardWords);
+  const enoughWords = heardWords.length >= expectedCount;
+  const heardLastWord = recentHeard.includes(lastExpected);
+  return orderedCount >= expectedCount || (enoughWords && heardLastWord);
 }
