@@ -1,10 +1,15 @@
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store';
 
+const PRODUCT_VERSION = '1.0.0';
+const COPYRIGHT_OWNER = 'Deepak Ingwale';
+const COPYRIGHT_WEBSITE = 'https://www.deepakingwale.com';
+
 export default function Layout({ children }) {
   const child = useAppStore((s) => s.child);
   const { pathname } = useLocation();
   const mainClass = pathname === '/read' ? 'main main-reading' : 'main';
+  const currentYear = new Date().getFullYear();
 
   return (
     <div className="app-shell">
@@ -38,6 +43,16 @@ export default function Layout({ children }) {
         )}
       </header>
       <main className={mainClass}>{children}</main>
+      <footer className="app-footer">
+        <span>Properly v{PRODUCT_VERSION}</span>
+        <span aria-hidden="true">·</span>
+        <span>
+          (C) {currentYear}{' '}
+          <a href={COPYRIGHT_WEBSITE} target="_blank" rel="noreferrer">
+            {COPYRIGHT_OWNER}
+          </a>
+        </span>
+      </footer>
     </div>
   );
 }

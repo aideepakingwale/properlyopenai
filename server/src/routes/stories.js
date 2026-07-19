@@ -4,7 +4,7 @@ import fs from 'fs';
 import { childrenRepo, storiesRepo } from '../db/repositories.js';
 import { generateStory, createPracticeStory } from '../services/storyService.js';
 import { generateIllustration } from '../services/illustrationService.js';
-import { generateStoryPdf } from '../services/pdfService.js';
+import { generateStoryPdf, isStoryPdfFresh } from '../services/pdfService.js';
 import { highlightText } from '../../../shared/phonicsEngine.js';
 import { getPracticeSentences } from '../../../shared/practiceSentences.js';
 import { config } from '../config.js';
@@ -124,13 +124,11 @@ router.get('/:id/pdf', async (req, res, next) => {
     let story = storiesRepo.get(req.params.id);
     if (!story) return res.status(404).json({ error: 'not found' });
 
-    let pdfPath = story.pdfPath;
-    let local = pdfPath ? storageUrlToPath(pdfPath) : null;
-    if (!local || !fs.existsSync(local)) {
+    let local = storageUrlToPath(story.pdfPath);
+    if (!isStoryPdfFresh(story, local)) {
       const pdf = await generateStoryPdf(story);
       story = storiesRepo.updatePaths(story.id, { pdfPath: pdf.url });
-      pdfPath = story.pdfPath;
-      local = storageUrlToPath(pdfPath);
+      local = storageUrlToPath(story.pdfPath);
     }
 
     if (!local || !fs.existsSync(local)) {

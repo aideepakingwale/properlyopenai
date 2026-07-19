@@ -141,6 +141,30 @@ a {
   padding: 0.45rem 0.55rem 0.65rem;
 }
 
+.app-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem 0.7rem;
+  color: rgba(36, 48, 79, 0.72);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.app-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+.main-reading + .app-footer {
+  padding-top: 0.2rem;
+  padding-bottom: 0.35rem;
+  font-size: 0.72rem;
+}
+
 .hero-onboard {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
