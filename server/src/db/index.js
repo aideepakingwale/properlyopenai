@@ -13,7 +13,20 @@ export function getDb() {
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA_SQL);
+  migrateDb(db);
   return db;
+}
+
+function migrateDb(database) {
+  const childColumns = new Set(
+    database
+      .prepare('PRAGMA table_info(children)')
+      .all()
+      .map((col) => col.name),
+  );
+  if (!childColumns.has('avatar_url')) {
+    database.prepare('ALTER TABLE children ADD COLUMN avatar_url TEXT').run();
+  }
 }
 
 export function parseJson(value, fallback) {
@@ -31,6 +44,7 @@ export function rowChild(row) {
     name: row.name,
     interests: parseJson(row.interests, []),
     phase: row.phase,
+    avatarUrl: row.avatar_url,
     acorns: row.acorns,
     streak: row.streak,
     lastReadAt: row.last_read_at,

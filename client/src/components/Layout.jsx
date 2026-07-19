@@ -37,6 +37,15 @@ export default function Layout({ children }) {
         </nav>
         {child && (
           <div className="top-stats">
+            {child.avatarUrl && (
+              <img
+                className="top-avatar"
+                src={child.avatarUrl}
+                alt={`${child.name}'s avatar`}
+                width="34"
+                height="34"
+              />
+            )}
             <span title="Acorns">{child.acorns ?? 0} acorns</span>
             <span title="Streak">{child.streak ?? 0} day streak</span>
           </div>

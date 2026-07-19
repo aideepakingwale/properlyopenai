@@ -11,8 +11,10 @@ export default function Home() {
   const session = useAppStore((s) => s.session);
   const setStory = useAppStore((s) => s.setStory);
   const setSession = useAppStore((s) => s.setSession);
+  const setChild = useAppStore((s) => s.setChild);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [avatarMessage, setAvatarMessage] = useState('');
   const [owl, setOwl] = useState(
     `Welcome back, ${child?.name || 'reader'}! Choose a story or practice sentences to read aloud.`,
   );
@@ -101,6 +103,34 @@ export default function Home() {
     if (story && session) navigate('/read');
   };
 
+  const uploadAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !child?.id) return;
+    if (!file.type.startsWith('image/')) {
+      setAvatarMessage('Please choose an image file.');
+      return;
+    }
+    if (file.size > 2_500_000) {
+      setAvatarMessage('Please choose an image below 2.5 MB.');
+      return;
+    }
+    setBusy('avatar');
+    setAvatarMessage('Uploading avatar...');
+    setError('');
+    try {
+      const image = await readFileAsDataUrl(file);
+      const updated = await api.uploadChildAvatar(child.id, image);
+      setChild(updated);
+      setAvatarMessage('Avatar saved. Your quest marker is now personalised.');
+    } catch (err) {
+      setAvatarMessage('');
+      setError(err.message || 'Could not upload avatar');
+    } finally {
+      setBusy('');
+    }
+  };
+
   return (
     <section className="home">
       <div className="home-hero">
@@ -122,6 +152,27 @@ export default function Home() {
       </div>
 
       <div className="home-actions">
+        <div className="profile-settings-card">
+          <div className="profile-avatar-preview">
+            <img
+              src={child.avatarUrl || '/images/mrs-owl-realistic.png'}
+              alt={`${child.name}'s quest avatar`}
+              width="72"
+              height="72"
+            />
+          </div>
+          <div>
+            <span className="eyebrow">Profile settings</span>
+            <strong>Quest avatar</strong>
+            <p>Upload a profile picture to move through the Phonics Quest map.</p>
+            <label className="btn ghost avatar-upload-btn">
+              {busy === 'avatar' ? 'Saving...' : 'Upload picture'}
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadAvatar} />
+            </label>
+            {avatarMessage && <small>{avatarMessage}</small>}
+          </div>
+        </div>
+
         <button
           className="btn primary lg"
           onClick={beginPractice}
@@ -154,4 +205,13 @@ export default function Home() {
       </div>
     </section>
   );
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Could not read image'));
+    reader.readAsDataURL(file);
+  });
 }

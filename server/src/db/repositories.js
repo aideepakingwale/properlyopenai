@@ -31,6 +31,7 @@ export const childrenRepo = {
       name: patch.name ?? current.name,
       interests: patch.interests ?? current.interests,
       phase: patch.phase ?? current.phase,
+      avatarUrl: patch.avatarUrl ?? current.avatarUrl,
       acorns: patch.acorns ?? current.acorns,
       streak: patch.streak ?? current.streak,
       lastReadAt: patch.lastReadAt ?? current.lastReadAt,
@@ -39,7 +40,7 @@ export const childrenRepo = {
       .prepare(
         `UPDATE children
          SET name = ?, interests = ?, phase = ?, acorns = ?, streak = ?,
-             last_read_at = ?, updated_at = datetime('now')
+             avatar_url = ?, last_read_at = ?, updated_at = datetime('now')
          WHERE id = ?`,
       )
       .run(
@@ -48,6 +49,7 @@ export const childrenRepo = {
         next.phase,
         next.acorns,
         next.streak,
+        next.avatarUrl,
         next.lastReadAt,
         id,
       );

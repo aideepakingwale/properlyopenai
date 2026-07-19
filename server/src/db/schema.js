@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS children (
   name TEXT NOT NULL,
   interests TEXT NOT NULL DEFAULT '[]',
   phase INTEGER NOT NULL DEFAULT 2,
+  avatar_url TEXT,
   acorns INTEGER NOT NULL DEFAULT 0,
   streak INTEGER NOT NULL DEFAULT 0,
   last_read_at TEXT,

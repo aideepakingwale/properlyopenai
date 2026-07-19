@@ -24,6 +24,11 @@ export const api = {
     request(`/api/children/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   getProgress: (id) => request(`/api/children/${id}/progress`),
   getRewards: (id) => request(`/api/children/${id}/rewards`),
+  uploadChildAvatar: (id, image) =>
+    request(`/api/children/${id}/avatar`, {
+      method: 'POST',
+      body: JSON.stringify({ image }),
+    }),
   generateStory: (body) =>
     request('/api/stories/generate', { method: 'POST', body: JSON.stringify(body) }),
   createPracticePack: (body) =>
