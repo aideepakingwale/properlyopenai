@@ -3041,11 +3041,16 @@ textarea:focus {
 }
 
 .grownup-summary summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   cursor: pointer;
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: 1.25rem;
-  padding: 0.4rem 0.6rem;
+  font-size: 1.05rem;
+  line-height: 1.05;
+  padding: 0.45rem 0.65rem;
   border-radius: 14px;
   background: rgba(216, 243, 220, 0.82);
   border: 2px solid rgba(22, 138, 90, 0.16);
@@ -3062,9 +3067,37 @@ textarea:focus {
 
 .grownup-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
   margin-top: 0.8rem;
+}
+
+.grownup-summary .metric-card {
+  min-width: 0;
+  padding: 0.55rem;
+  border-radius: 14px;
+  border: 2px solid rgba(36, 48, 79, 0.06);
+  box-shadow: none;
+  text-align: left;
+}
+
+.grownup-summary .metric-card strong {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.grownup-summary .metric-card span {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.grownup-summary[open]::after {
+  min-height: 5rem;
+  opacity: 0.72;
 }
 
 @keyframes map-shimmer {
@@ -3322,6 +3355,12 @@ textarea:focus {
 
   .quest-counters {
     justify-content: flex-start;
+  }
+
+  .recent-wins-panel,
+  .grownup-summary {
+    border-left: 0;
+    border-top: 2px solid rgba(139, 111, 72, 0.16);
   }
 
   .journey-map-panel {
