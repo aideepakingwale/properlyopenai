@@ -405,37 +405,6 @@ export default function Reading() {
             </button>
           </div>
 
-          <div className="story-listen-row" role="group" aria-label="Whole page listening">
-            <span>Whole page</span>
-            <div>
-              <button
-                type="button"
-                className="btn secondary"
-                onClick={() => hearStory('phonemes')}
-                disabled={coach.speaking}
-                title="Phonemes, then words, then each sentence"
-              >
-                Sounds
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => hearStory('words')}
-                disabled={coach.speaking}
-              >
-                Words
-              </button>
-              <button
-                type="button"
-                className="btn ghost"
-                onClick={() => hearStory('full')}
-                disabled={coach.speaking}
-              >
-                Story
-              </button>
-            </div>
-          </div>
-
           <div className="sentence-list" aria-label="Sentences to read">
             {sentences.map((s) => (
               <div
@@ -453,35 +422,6 @@ export default function Reading() {
                   <span className="sentence-num">{s.index + 1}</span>
                   <span className="sentence-preview">{s.text}</span>
                 </button>
-                <div className="sentence-actions" role="group" aria-label={`Listen to line ${s.index + 1}`}>
-                  <button
-                    type="button"
-                    className="listen-mini-action primary"
-                    onClick={() => hearSentence(s, 'phonemes')}
-                    disabled={coach.speaking}
-                    title="Phonemes → word → sentence"
-                  >
-                    Sounds
-                  </button>
-                  <button
-                    type="button"
-                    className="listen-mini-action"
-                    onClick={() => hearSentence(s, 'words')}
-                    disabled={coach.speaking}
-                    title="Words → sentence"
-                  >
-                    Words
-                  </button>
-                  <button
-                    type="button"
-                    className="listen-mini-action"
-                    onClick={() => hearSentence(s, 'full')}
-                    disabled={coach.speaking}
-                    title="Full sentence only"
-                  >
-                    Line
-                  </button>
-                </div>
               </div>
             ))}
           </div>
@@ -555,9 +495,8 @@ export default function Reading() {
 
         <div className="mic-panel">
           <p className="assess-target">
-            Scoring against:{' '}
+            Read aloud:{' '}
             <strong>{activeSentence ? `Sentence ${activeSentence.index + 1}` : 'whole page'}</strong>
-            <span className="assess-quote"> “{expectedForAssess}”</span>
           </p>
           <p className="listen-hint">
             <strong>Real scoring:</strong> Start → read the sentence aloud → Stop &amp; assess. Your
@@ -666,9 +605,6 @@ export default function Reading() {
 
           {assessment?.transcript != null && (
             <div className="heard-line">
-              <p>
-                <strong>Target:</strong> {expectedForAssess}
-              </p>
               {assessment.whisperTranscript &&
                 assessment.whisperTranscript !== assessment.transcript && (
                   <p>
@@ -678,12 +614,6 @@ export default function Reading() {
               <p>
                 <strong>Heard:</strong> {assessment.transcript || '(no words recognised)'}
               </p>
-              {assessment.validation?.targetText &&
-                assessment.validation.targetText !== expectedForAssess && (
-                  <p>
-                    <strong>Scored against:</strong> {assessment.validation.targetText}
-                  </p>
-                )}
               {assessment.validation?.scorer && (
                 <p className="scorer-tag">Scorer: {assessment.validation.scorer}</p>
               )}
