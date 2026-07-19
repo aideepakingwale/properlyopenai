@@ -38,11 +38,11 @@ const FEATURE_BLOCKS = [
       'Acorns, streaks, badges, treasure chests, and a journey map make practice feel like progress through an adventure.',
   },
   {
-    title: 'Teacher and parent outputs',
-    label: 'PDF',
+    title: 'Reading book and progress',
+    label: 'Book',
     tone: 'ink',
     text:
-      'Branded printable PDFs, grown-up summaries, and progress milestones help adults understand what to practise next.',
+      'Branded reading books, grown-up summaries, and progress milestones help adults understand what to practise next.',
   },
 ];
 

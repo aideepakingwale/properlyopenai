@@ -135,7 +135,13 @@ router.get('/:id/pdf', async (req, res, next) => {
       return res.status(500).json({ error: 'pdf generation failed' });
     }
 
-    res.download(local, `${safeDownloadName(story.title || 'story')}.pdf`);
+    const filename = `${safeDownloadName(story.title || 'story')}.pdf`;
+    const stat = fs.statSync(local);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', stat.size);
+    res.setHeader('Content-Disposition', inlinePdfDisposition(filename));
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    fs.createReadStream(local).pipe(res);
   } catch (err) {
     next(err);
   }
@@ -154,4 +160,9 @@ function safeDownloadName(name) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 80) || 'story';
+}
+
+function inlinePdfDisposition(filename) {
+  const fallback = filename.replace(/[^\x20-\x7E]/g, '').replace(/"/g, '') || 'story.pdf';
+  return `inline; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }

@@ -604,8 +604,14 @@ export default function Reading() {
               </button>
             )}
             {story.id && (
-              <a className="btn ghost" href={api.pdfUrl(story.id)} target="_blank" rel="noreferrer">
-                Download PDF
+              <a
+                className="btn ghost"
+                href={api.pdfUrl(story.id)}
+                target="_blank"
+                rel="noreferrer"
+                title="Open book in a new tab"
+              >
+                Open Book
               </a>
             )}
           </div>
