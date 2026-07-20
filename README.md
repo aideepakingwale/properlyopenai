@@ -1,8 +1,216 @@
-# Properly
+# Properly: AI Phonics Tutor Built with Codex and OpenAI
 
-**Properly** is an AI-powered phonics tutor for children aged 4–7. It listens as they read aloud, analyses pronunciation at the phoneme level, and coaches them in real time through **Mrs Owl** — a warm virtual tutor.
+**Properly** is an AI-powered phonics tutor for children aged 4–7.  It helps early readers practise DfE Letters and Sounds aligned phonics through personalised stories, guided reading, read-aloud assessment, friendly coaching, progress tracking, rewards, and printable storybooks. It listens as they read aloud, analyses pronunciation at the phoneme level, and coaches them in real time through **Mrs Owl** — a warm virtual tutor.
 
 Private phonics coaching often costs **£40–£80 per hour**. Properly is built to make personalised, DfE **Letters and Sounds**-aligned practice available to every family, including a mock demo path that can run with no OpenAI API spend when no API key is configured.
+
+The project is designed around a simple principle: use AI only where it genuinely improves the learning experience, and use deterministic code where correctness, safety, repeatability, and child-appropriate control matter most.
+
+
+## Problem
+
+Early phonics support is expensive, inconsistent, and often difficult for parents to provide at home. Private phonics tutoring can cost a significant amount per hour, while children still need frequent, low-pressure practice between school sessions.
+
+For children aged 4-7, the challenge is not only reading words. They need:
+
+- phase-appropriate vocabulary
+- repeated exposure to grapheme and phoneme patterns
+- encouragement rather than harsh correction
+- simple reading missions that feel achievable
+- feedback that helps parents and children understand progress
+
+Properly makes this practice available as an accessible web application.
+
+## Solution
+
+Properly acts as a friendly AI phonics tutor. A child or parent creates a profile, chooses the child's phonics phase and interests, then Properly generates or selects suitable reading material. The child listens, practises, reads aloud, receives scoring and feedback, earns rewards, and can download a PDF storybook.
+
+The product experience is centred around "Mrs Owl", a warm virtual tutor who guides the child through the reading flow.
+
+# Core features include:
+
+- child profile setup with phase and interests
+- phase-safe story generation
+- interactive grapheme and phoneme highlighting
+- real phoneme audio support for the 44 IPA phonemes
+- read-aloud recording and assessment
+- Mrs Owl coaching and feedback
+- progress dashboard
+- acorns, badges, streaks, and reward milestones
+- printable A4 PDF storybooks
+- cache-aware image, PDF, and content reuse
+
+## Functional Flow
+
+1. A child profile is created with name, age/phase, and interests.
+2. Properly generates or selects phase-safe reading content.
+3. The child practises with phoneme tiles, grapheme highlights, and spoken guidance.
+4. The child reads aloud into the microphone.
+5. Audio is assessed through speech transcription and deterministic phonics validation.
+6. Mrs Owl gives encouraging feedback.
+7. Progress, rewards, and storybook assets are saved.
+
+## Technology Stack
+
+Properly is a full-stack web application:
+
+| Layer | Technology |
+| --- | --- |
+| Frontend | React 18, Vite |
+| Backend | Node.js, Express |
+| Real-time audio | WebSockets |
+| Data storage | SQLite with WAL mode |
+| Shared phonics logic | `shared/phonicsEngine.js` |
+| PDF generation | PDFKit |
+| AI services | OpenAI chat, Whisper, TTS, image generation |
+| Deployment | Docker, Render |
+| Source control | GitHub |
+
+## OpenAI Usage
+
+Properly uses OpenAI for non-deterministic or media-based tasks where AI provides clear value.
+
+| Feature | OpenAI model/service | Why it is used |
+| --- | --- | --- |
+| Story generation | `GPT-5.6` | Creates varied, child-friendly stories constrained to the child's phonics phase |
+| Mrs Owl coaching | `GPT-5.6` | Produces short, encouraging, context-aware tutor feedback |
+| Transcript refinement | `GPT-5.6` | Helps recover plausible child reading from Whisper output without blindly forcing a pass |
+| Speech transcription | `Whisper` / `whisper-1` | Converts recorded child audio into text for scoring |
+| Tutor voice | OpenAI TTS `tts-1` | Gives Mrs Owl a spoken voice for coaching and sentence playback |
+| Story illustrations | `gpt-image-1-mini` | Generates low-cost, basic 2D storybook images suitable for the current demo need |
+
+The image generation path intentionally uses `gpt-image-1-mini` because the product currently needs simple, low-resolution, child-friendly 2D illustrations rather than high-resolution artwork. This keeps the experience lightweight and cost-conscious.
+
+## Deterministic Logic
+
+Not every feature should use an LLM. Properly deliberately keeps several core learning and product behaviours deterministic.
+
+Deterministic capabilities include:
+
+- DfE Letters and Sounds phase mapping
+- 44 IPA phoneme metadata
+- grapheme to phoneme mapping
+- vocabulary allowlists
+- phoneme tile rendering
+- mouth cue and pronunciation UI logic
+- scoreboard and reward rules
+- acorn, badge, and streak logic
+- PDF layout and storybook rendering
+- Jaccard-style word and phoneme similarity validation
+- anti-cheat completion gate
+- fallback mock/demo modes
+
+This separation is important because a child learning product needs predictable boundaries. The LLM helps create language and feedback, while coded rules keep the learning path controlled.
+
+## Cache and Cost-Aware AI Design
+
+Properly includes a cache layer to avoid unnecessary duplicate AI calls.
+
+The cache strategy includes:
+
+- checking prompt/content hashes before regeneration
+- reusing story image metadata when the phase, theme, and visible story subjects match
+- saving generated image files to local storage
+- saving generated PDF metadata and cache keys
+- storing profile, story, session, reward, and assessment data in SQLite WAL mode
+- supporting mock mode when no OpenAI API key is configured
+
+This means the app does not blindly regenerate the same story image, PDF, or AI-created content again and again. It reduces cost, improves response time, and makes the demo safer to run during judging.
+
+## How Codex Helped
+
+Codex was used as the main engineering collaborator for the project.
+
+The original product idea and feature requirements were provided as Markdown planning documents. Codex followed those instructions to help design, implement, refine, debug, and document the full-stack application.
+
+Codex helped with:
+
+- turning the product plan into a working React + Node architecture
+- creating the phonics-focused user experience
+- implementing child profiles, reading flows, rewards, and progress views
+- building Express APIs and WebSocket audio flow
+- integrating OpenAI services in a controlled and optional way
+- adding mock mode so the product works without API spend
+- building the cache-aware illustration and PDF generation flow
+- improving the read-aloud scoring pipeline
+- creating Devpost submission material
+- generating captions, scripts, architecture visuals, and demo assets
+- producing the animated architecture diagram for publication
+
+Codex was especially useful because the project required constant movement between product thinking, UI implementation, backend design, AI integration, deployment concerns, and judging material. Instead of treating these as separate tasks, Codex helped keep them connected.
+
+## How OpenAI Helped
+
+OpenAI services provide the flexible intelligence layer of Properly.
+
+GPT-5.6 helps create personalised reading content and child-friendly coaching. Whisper helps listen to children reading aloud. OpenAI TTS helps Mrs Owl speak. The image model helps create storybook illustrations. Together, these services make the product feel adaptive and interactive.
+
+At the same time, Properly does not outsource the whole learning system to the LLM. The app uses OpenAI where creativity, speech, and language interpretation are needed, then brings the result back into deterministic phonics validation and product rules.
+
+## Architecture Summary
+
+```text
+React + Vite UI
+   |
+   | REST + WebSocket audio
+   v
+Node / Express API
+   |
+   |-- shared phonics engine
+   |-- deterministic scoring and rewards
+   |-- SQLite WAL database
+   |-- PDF/image/audio file storage
+   |-- cache lookup before regeneration
+   |
+   v
+OpenAI services when needed
+   |-- GPT-5.6 for stories, coaching, transcript refinement
+   |-- Whisper for read-aloud transcription
+   |-- tts-1 for Mrs Owl speech
+   |-- gpt-image-1-mini for basic 2D storybook images
+```
+
+## Demo Walkthrough
+
+1. Open the live demo.
+2. Create or use a child profile.
+3. Generate practice sentences or a personalised story.
+4. Show the reading screen with phoneme and grapheme support.
+5. Use the student read-aloud area for a real voice recording demo.
+6. Show scoring, Mrs Owl feedback, and retry guidance.
+7. Open progress and rewards.
+8. Download or show the generated PDF storybook.
+9. Explain that Codex built the full-stack product from the Markdown plan and that OpenAI models are invoked only for the right AI-specific moments.
+
+## Safety and Product Design Choices
+
+Properly is designed for young children, so the implementation favours:
+
+- short and encouraging feedback
+- phase-safe vocabulary
+- no harsh failure language
+- deterministic validation before rewards
+- mock mode for safe demos
+- low-cost image generation
+- cache reuse to avoid repeated model calls
+- human-reviewable architecture and code
+
+## Current Status
+
+Properly is a working demo/prototype suitable for hackathon judging and product demonstration. It includes the core learning journey, OpenAI integration points, deterministic phonics logic, deployment setup, documentation, and publishable architecture visuals.
+
+## Future Improvements
+
+Planned future enhancements include:
+
+- stronger persistent storage for production pupil records
+- teacher/parent dashboards
+- richer reporting by phoneme and phase
+- expanded story library
+- classroom mode
+- more robust browser audio support across devices
+- accessibility review for early readers and parents
+- production-grade privacy and consent flows
 
 ---
 
@@ -373,6 +581,24 @@ All **44 IPA phonemes** use **real British English isolation recordings** (not s
 
 ---
 
+## Links
+
+- Live demo: https://properly-cr26.onrender.com/
+- GitHub repository: https://github.com/aideepakingwale/properlyopenai
+- Codex `/feedback` session ID: `019f771d-0bdd-7862-8dc7-967e49578487`
+- Architecture poster: `artifacts/architecture/properly-learning-orchestra-poster.png`
+- Animated architecture GIF: `artifacts/architecture/properly-learning-orchestra-animation-under-5mb.gif`
+- Animated architecture WebM: `artifacts/architecture/properly-learning-orchestra-animation.webm`
+
+![Properly architecture](artifacts/architecture/properly-learning-orchestra-poster.png)
+
+
 ## Licence
 
 Private / educational prototype.
+
+## Credits
+
+Built by Deepak Ingwale with Codex and OpenAI.
+
+Copyright (c) Deepak Ingwale.
