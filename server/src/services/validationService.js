@@ -34,6 +34,18 @@ const EXACT_WORD_CEILING = 0.92;
 const SOFT_WORD_CEILING = 0.8;
 /** Overall score soft cap (never show a perfect 100 from transcript alone) */
 const OVERALL_SCORE_CAP = 0.96;
+export const READING_SCORER_VERSION = 'v7-strict-overall-phonics';
+const SCORER_VERSION = READING_SCORER_VERSION;
+const MIN_STRICT_READING_SCORE = envNumber('MIN_STRICT_READING_SCORE', 0.86);
+const MIN_STRICT_WORD_COVERAGE = envNumber('MIN_STRICT_WORD_COVERAGE', 0.9);
+const MIN_STRICT_PHONEME_SEQUENCE = envNumber('MIN_STRICT_PHONEME_SEQUENCE', 0.82);
+const WEAK_WORD_SCORE_CAP = envNumber('WEAK_WORD_SCORE_CAP', 0.78);
+const WRONG_WORD_SCORE_CAP = envNumber('WRONG_WORD_SCORE_CAP', 0.58);
+
+function envNumber(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) ? value : fallback;
+}
 
 export function phonemeWordSimilarity(a, b) {
   const pa = wordToPhonemes(a);
@@ -221,6 +233,162 @@ export function alignWords(expectedWords, recognizedWords) {
   return { alignment, extras };
 }
 
+function round3(value) {
+  return Math.round((Number(value) || 0) * 1000) / 1000;
+}
+
+function passPolicy() {
+  return {
+    threshold: Math.max(Number(config.jaccardThreshold) || 0.72, MIN_STRICT_READING_SCORE),
+    minCoverage: Math.max(envNumber('MIN_WORD_COVERAGE', 0.7), MIN_STRICT_WORD_COVERAGE),
+    minStrongRate: 1,
+    minPhonemeSeq: MIN_STRICT_PHONEME_SEQUENCE,
+    maxWeakCount: 0,
+  };
+}
+
+function summarizeStatuses(wordScores) {
+  const total = Math.max(wordScores.length, 1);
+  const exact = wordScores.filter((w) => w.status === 'exact');
+  const close = wordScores.filter((w) => w.status === 'close');
+  const partial = wordScores.filter((w) => w.status === 'partial');
+  const wrong = wordScores.filter((w) => w.status === 'wrong');
+  const missing = wordScores.filter((w) => w.status === 'missing');
+  const weak = [...missing, ...wrong, ...partial];
+  const wrongOrMissing = [...missing, ...wrong];
+  const covered = [...exact, ...close, ...partial].length;
+  const phonemeSeq =
+    wordScores.reduce((s, w) => s + (w.phonemeMatch || 0), 0) / total;
+
+  return {
+    coverage: covered / total,
+    exactRate: exact.length / total,
+    strongRate: (exact.length + close.length) / total,
+    sequence: wordScores.filter((w) => w.heard).length / total,
+    phonemeSeq,
+    weak,
+    wrongOrMissing,
+    missing,
+    partial,
+    close,
+  };
+}
+
+function decidePass({ combined, summary, policy }) {
+  if (summary.wrongOrMissing.length > 0) {
+    return { passed: false, reason: 'missing_or_wrong_words' };
+  }
+  if (summary.weak.length > policy.maxWeakCount) {
+    return { passed: false, reason: 'phoneme_errors' };
+  }
+  if (summary.coverage < policy.minCoverage) {
+    return { passed: false, reason: 'low_word_coverage' };
+  }
+  if (summary.strongRate < policy.minStrongRate) {
+    return { passed: false, reason: 'not_enough_clear_words' };
+  }
+  if (summary.phonemeSeq < policy.minPhonemeSeq) {
+    return { passed: false, reason: 'phoneme_accuracy' };
+  }
+  if (combined < policy.threshold) {
+    return { passed: false, reason: 'below_threshold' };
+  }
+  return { passed: true, reason: 'ok' };
+}
+
+function scoreFromWordScores({
+  expectedWords,
+  recognizedWords,
+  rawRecognizedWords = recognizedWords,
+  wordScores,
+  extras = [],
+  targetText = '',
+}) {
+  const policy = passPolicy();
+  const summary = summarizeStatuses(wordScores);
+  const wordAvg =
+    wordScores.reduce((sum, w) => sum + w.score, 0) / Math.max(wordScores.length, 1);
+
+  // Extra spoken words (not in the line) trim realism a little.
+  const extraPenalty = Math.min(0.12, extras.length * 0.03);
+  const lengthRatio =
+    Math.min(recognizedWords.length, expectedWords.length) /
+    Math.max(recognizedWords.length, expectedWords.length, 1);
+  const lengthFactor = 0.85 + 0.15 * lengthRatio;
+
+  let combined = wordAvg * lengthFactor - extraPenalty;
+  combined = Math.max(0, Math.min(OVERALL_SCORE_CAP, combined));
+
+  // A read with a wrong/missing/partial word must not still look like a high pass.
+  if (summary.wrongOrMissing.length > 0) {
+    combined = Math.min(combined, WRONG_WORD_SCORE_CAP);
+  } else if (summary.weak.length > 0) {
+    combined = Math.min(combined, WEAK_WORD_SCORE_CAP);
+  }
+  combined = round3(combined);
+
+  const jaccardWords = jaccardSimilarity(expectedWords, recognizedWords);
+  const jaccardPhonemes = jaccardSimilarity(
+    expectedPhonemes(expectedWords.join(' ')),
+    recognizedWords.flatMap((w) => wordToPhonemes(w)),
+  );
+  const decision = decidePass({ combined, summary, policy });
+
+  return {
+    jaccardWords,
+    jaccardPhonemes,
+    coverage: round3(summary.coverage),
+    sequence: round3(summary.sequence),
+    phonemeSeq: round3(summary.phonemeSeq),
+    exactRate: round3(summary.exactRate),
+    strongRate: round3(summary.strongRate),
+    combined,
+    displayScore: Math.round(combined * 100),
+    threshold: policy.threshold,
+    minCoverage: policy.minCoverage,
+    minStrongRate: policy.minStrongRate,
+    minPhonemeSeq: policy.minPhonemeSeq,
+    maxWeakCount: policy.maxWeakCount,
+    passed: decision.passed,
+    expectedWords,
+    recognizedWords,
+    missingWords: summary.missing.map((w) => w.expected),
+    weakWords: summary.weak.map((w) => w.expected),
+    weakCount: summary.weak.length,
+    wrongOrMissingWords: summary.wrongOrMissing.map((w) => w.expected),
+    extras,
+    wordScores,
+    reason: decision.reason,
+    rawRecognizedWords,
+    targetText,
+    scorer: SCORER_VERSION,
+  };
+}
+
+function sentenceBreakdownFromOverall(overall, sentences) {
+  let offset = 0;
+  return sentences.map((sentence, index) => {
+    const expectedWords = extractWords(sentence);
+    const wordScores = overall.wordScores.slice(offset, offset + expectedWords.length);
+    offset += expectedWords.length;
+    const recognizedWords = wordScores.map((w) => w.heard).filter(Boolean);
+    const score = scoreFromWordScores({
+      expectedWords,
+      recognizedWords,
+      rawRecognizedWords: recognizedWords,
+      wordScores,
+      extras: [],
+      targetText: sentence,
+    });
+    return {
+      ...score,
+      sentenceIndex: index,
+      sentenceNumber: index + 1,
+      text: sentence,
+    };
+  });
+}
+
 function splitExpectedSentences(text) {
   return String(text || '')
     .split(/(?<=[.!?])\s+/)
@@ -243,73 +411,16 @@ function scoreAgainst(expectedText, recognizedText) {
   const { alignment, extras } = alignWords(expectedWords, cleaned);
   const wordScores = alignment.map(({ expected, heard }) => scoreWordPhonics(expected, heard));
 
-  const wordAvg =
-    wordScores.reduce((sum, w) => sum + w.score, 0) / Math.max(wordScores.length, 1);
-
-  // Extra spoken words (not in the line) trim realism a little
-  const extraPenalty = Math.min(0.12, extras.length * 0.03);
-  // Length mismatch penalty
-  const lengthRatio =
-    Math.min(cleaned.length, expectedWords.length) /
-    Math.max(cleaned.length, expectedWords.length);
-  const lengthFactor = 0.85 + 0.15 * lengthRatio;
-
-  let combined = wordAvg * lengthFactor - extraPenalty;
-  combined = Math.max(0, Math.min(OVERALL_SCORE_CAP, combined));
-  combined = Math.round(combined * 1000) / 1000;
-
-  const coverage =
-    wordScores.filter((w) => w.status === 'exact' || w.status === 'close' || w.status === 'partial')
-      .length / wordScores.length;
-  const exactRate = wordScores.filter((w) => w.status === 'exact').length / wordScores.length;
-  const sequence = wordScores.filter((w) => w.heard).length / wordScores.length;
-  const phonemeSeq =
-    wordScores.reduce((s, w) => s + (w.phonemeMatch || 0), 0) / wordScores.length;
-
-  const jaccardWords = jaccardSimilarity(expectedWords, cleaned);
-  const jaccardPhonemes = jaccardSimilarity(
-    expectedPhonemes(expectedWords.join(' ')),
-    cleaned.flatMap((w) => wordToPhonemes(w)),
-  );
-
-  // Word-phonics average needs a higher bar than old bag Jaccard
-  const threshold = Math.max(Number(config.jaccardThreshold) || 0.72, 0.72);
-  const minCoverage = Number(process.env.MIN_WORD_COVERAGE || 0.7);
-  const missingWords = wordScores.filter((w) => w.status === 'missing').map((w) => w.expected);
-  const weakCount = wordScores.filter(
-    (w) => w.status === 'missing' || w.status === 'wrong' || w.status === 'partial',
-  ).length;
-  const strongRate =
-    wordScores.filter((w) => w.status === 'exact' || w.status === 'close').length /
-    wordScores.length;
-
-  const passed =
-    combined >= threshold &&
-    coverage >= minCoverage &&
-    strongRate >= 0.65 &&
-    weakCount <= Math.max(1, Math.floor(wordScores.length * 0.25));
-
   return {
-    jaccardWords,
-    jaccardPhonemes,
-    coverage: Math.round(coverage * 1000) / 1000,
-    sequence: Math.round(sequence * 1000) / 1000,
-    phonemeSeq: Math.round(phonemeSeq * 1000) / 1000,
-    exactRate: Math.round(exactRate * 1000) / 1000,
-    combined,
-    displayScore: Math.round(combined * 100),
-    threshold,
-    minCoverage,
-    passed,
+    ...scoreFromWordScores({
+      expectedWords,
+      recognizedWords: cleaned,
+      rawRecognizedWords: rawRecognized,
+      wordScores,
+      extras,
+      targetText: expectedText,
+    }),
     expectedWords,
-    recognizedWords: cleaned,
-    missingWords,
-    extras,
-    wordScores,
-    reason: passed ? 'ok' : coverage < minCoverage ? 'low_word_coverage' : 'below_threshold',
-    rawRecognizedWords: rawRecognized,
-    targetText: expectedText,
-    scorer: 'v6-word-phonics',
   };
 }
 
@@ -325,25 +436,36 @@ export function validateReading(expectedText, recognizedText) {
     return failResult(extractWords(full), [], 'no_speech_recognized');
   }
 
-  let best = scoreAgainst(full, heard);
+  const overall = scoreAgainst(full, heard);
+  const sentenceScores = sentenceBreakdownFromOverall(
+    overall,
+    sentences.length ? sentences : [full],
+  );
+  const focusSentence =
+    sentenceScores.find((s) => !s.passed && s.weakCount > 0) ||
+    sentenceScores.find((s) => !s.passed) ||
+    null;
 
-  if (sentences.length > 1) {
-    for (const sentence of sentences) {
-      const v = scoreAgainst(sentence, heard);
-      if (v.combined > best.combined) {
-        best = { ...v, matchedSentence: sentence };
-      }
-    }
-  } else if (sentences.length === 1) {
-    const v = scoreAgainst(sentences[0], heard);
-    if (v.combined >= best.combined) best = v;
-  }
-
-  return best;
+  return {
+    ...overall,
+    sentenceScores,
+    focusSentence: focusSentence
+      ? {
+          sentenceIndex: focusSentence.sentenceIndex,
+          sentenceNumber: focusSentence.sentenceNumber,
+          text: focusSentence.text,
+          displayScore: focusSentence.displayScore,
+          reason: focusSentence.reason,
+          weakWords: focusSentence.weakWords,
+        }
+      : null,
+    scoringScope: sentenceScores.length > 1 ? 'overall' : 'sentence',
+  };
 }
 
 function failResult(expectedWords, recognizedWords, reason) {
   const wordScores = expectedWords.map((w) => scoreWordPhonics(w, null));
+  const policy = passPolicy();
   return {
     jaccardWords: 0,
     jaccardPhonemes: 0,
@@ -351,17 +473,27 @@ function failResult(expectedWords, recognizedWords, reason) {
     sequence: 0,
     phonemeSeq: 0,
     exactRate: 0,
+    strongRate: 0,
     combined: 0,
     displayScore: 0,
-    threshold: Number(config.jaccardThreshold) || 0.55,
-    minCoverage: Number(process.env.MIN_WORD_COVERAGE || 0.55),
+    threshold: policy.threshold,
+    minCoverage: policy.minCoverage,
+    minStrongRate: policy.minStrongRate,
+    minPhonemeSeq: policy.minPhonemeSeq,
+    maxWeakCount: policy.maxWeakCount,
     passed: false,
     expectedWords,
     recognizedWords,
     missingWords: [...expectedWords],
+    weakWords: [...expectedWords],
+    weakCount: expectedWords.length,
+    wrongOrMissingWords: [...expectedWords],
     extras: [],
     wordScores,
     reason,
-    scorer: 'v6-word-phonics',
+    sentenceScores: [],
+    focusSentence: null,
+    scoringScope: expectedWords.length ? 'sentence' : 'unknown',
+    scorer: SCORER_VERSION,
   };
 }

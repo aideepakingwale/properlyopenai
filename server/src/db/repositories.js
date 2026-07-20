@@ -168,8 +168,31 @@ export const assessmentsRepo = {
         row.jaccardWords ?? null,
         row.jaccardPhonemes ?? null,
         row.path || 'whisper',
-      );
+    );
     return id;
+  },
+
+  listForSession(sessionId) {
+    return getDb()
+      .prepare(
+        `SELECT id, session_id, expected, recognized, phoneme_scores, jaccard_words,
+                jaccard_phonemes, path, created_at
+         FROM assessments
+         WHERE session_id = ?
+         ORDER BY created_at ASC`,
+      )
+      .all(sessionId)
+      .map((row) => ({
+        id: row.id,
+        sessionId: row.session_id,
+        expected: row.expected,
+        recognized: row.recognized,
+        phonemeScores: JSON.parse(row.phoneme_scores || '{}'),
+        jaccardWords: row.jaccard_words,
+        jaccardPhonemes: row.jaccard_phonemes,
+        path: row.path,
+        createdAt: row.created_at,
+      }));
   },
 };
 

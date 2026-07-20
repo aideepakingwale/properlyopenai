@@ -39,6 +39,7 @@ export default function Home() {
     try {
       setStory(nextStory);
       const nextSession = await api.startSession({ childId: child.id, storyId: nextStory.id });
+      if (nextSession.child) setChild(nextSession.child);
       setSession(nextSession);
       try {
         const coach = await api.coach({

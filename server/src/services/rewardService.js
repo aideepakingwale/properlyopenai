@@ -1,39 +1,18 @@
 import { childrenRepo, rewardsRepo, sessionsRepo } from '../db/repositories.js';
-
-function sameUtcDay(a, b) {
-  if (!a || !b) return false;
-  return String(a).slice(0, 10) === String(b).slice(0, 10);
-}
-
-function yesterdayOf(iso) {
-  const d = new Date(iso);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d.toISOString();
-}
+import { recordChildActivity } from './activityService.js';
 
 /**
  * Award acorns, update streak, and grant trophies after a validated session.
  */
 export function awardSessionRewards(childId, { jaccardScore = 0 } = {}) {
-  const child = childrenRepo.get(childId);
+  const activity = recordChildActivity(childId, { type: 'verified_reading_reward' });
+  const child = activity?.child || childrenRepo.get(childId);
   if (!child) return { child: null, rewards: [] };
-
-  const now = new Date().toISOString();
-  let streak = child.streak || 0;
-  if (child.lastReadAt && sameUtcDay(child.lastReadAt, now)) {
-    // same day — keep streak
-  } else if (child.lastReadAt && sameUtcDay(child.lastReadAt, yesterdayOf(now))) {
-    streak += 1;
-  } else {
-    streak = 1;
-  }
 
   const acornGain = Math.max(3, Math.round(5 + jaccardScore * 10));
   const acorns = (child.acorns || 0) + acornGain;
   const updated = childrenRepo.update(childId, {
     acorns,
-    streak,
-    lastReadAt: now,
   });
 
   const rewards = [];
@@ -46,7 +25,11 @@ export function awardSessionRewards(childId, { jaccardScore = 0 } = {}) {
     }),
   );
 
-  if (streak > 0 && streak % 3 === 0) {
+  const streak = updated.streak || 0;
+  const hasThisStreakReward = rewardsRepo
+    .listForChild(childId)
+    .some((r) => r.type === 'streak' && Number(r.meta?.streak) === streak);
+  if (streak > 0 && streak % 3 === 0 && !hasThisStreakReward) {
     rewards.push(
       rewardsRepo.create({
         childId,

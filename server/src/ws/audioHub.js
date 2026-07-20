@@ -8,6 +8,7 @@ import {
 } from '../services/assessmentService.js';
 import { hasOpenAIKey } from '../services/openaiClient.js';
 import { config } from '../config.js';
+import { recordChildActivity } from '../services/activityService.js';
 
 /**
  * WebSocket audio hub:
@@ -84,6 +85,7 @@ export function attachAudioHub(server) {
             return;
           }
           const story = storiesRepo.get(session.storyId);
+          recordChildActivity(session.childId, { type: 'audio_session_start' });
           state.sessionId = session.id;
           state.attemptId = Number(msg.attemptId) || state.attemptId + 1;
           state.expectedText =

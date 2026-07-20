@@ -4,6 +4,7 @@ import { Router } from 'express';
 import sharp from 'sharp';
 import { config } from '../config.js';
 import { childrenRepo, rewardsRepo, sessionsRepo, storiesRepo } from '../db/repositories.js';
+import { recordChildActivity, sameUtcDay } from '../services/activityService.js';
 
 const router = Router();
 const AVATAR_MAX_BYTES = 10_000_000;
@@ -38,6 +39,15 @@ router.patch('/:id', (req, res) => {
   const child = childrenRepo.update(req.params.id, req.body || {});
   if (!child) return res.status(404).json({ error: 'not found' });
   res.json(child);
+});
+
+router.post('/:id/activity', (req, res) => {
+  const type = String(req.body?.type || 'phonics_activity')
+    .replace(/[^a-z0-9_-]/gi, '')
+    .slice(0, 40) || 'phonics_activity';
+  const result = recordChildActivity(req.params.id, { type });
+  if (!result) return res.status(404).json({ error: 'not found' });
+  res.json(result);
 });
 
 router.post('/:id/avatar', async (req, res, next) => {
@@ -137,6 +147,7 @@ function removeStoredAvatar(previousUrl, nextUrl) {
 function buildProgressStats(child, completed) {
   const today = new Date().toISOString().slice(0, 10);
   const sessionsToday = completed.filter((s) => String(s.endedAt || s.startedAt).slice(0, 10) === today).length;
+  const activeToday = sameUtcDay(child.lastReadAt, new Date().toISOString());
   const averageJaccard =
     completed.length === 0
       ? 0
@@ -145,7 +156,10 @@ function buildProgressStats(child, completed) {
 
   return {
     completedSessions: completed.length,
+    verifiedMissions: completed.length,
     sessionsToday,
+    activeToday,
+    lastActivityAt: child.lastReadAt,
     averageJaccard,
     bestScore,
     phase: child.phase,
@@ -172,11 +186,11 @@ function buildGamification(child, completed, rewards, stats) {
   return {
     level: levelState,
     dailyQuest: {
-      title: 'Read one story today',
-      current: Math.min(1, stats.sessionsToday),
+      title: 'Do one phonics activity today',
+      current: stats.activeToday ? 1 : 0,
       target: 1,
-      complete: stats.sessionsToday >= 1,
-      reward: '+10 to +15 acorns',
+      complete: Boolean(stats.activeToday),
+      reward: 'Keep your day streak alive',
     },
     phaseQuest: {
       title: `Phase ${child.phase} path`,
@@ -193,7 +207,7 @@ function buildGamification(child, completed, rewards, stats) {
 
 function buildCurrentMission(stats, child, acorns, phaseSessions, activeStage, levelState) {
   const milestone = buildNextMilestone(activeStage, child);
-  const dailyCurrent = Math.min(1, stats.sessionsToday);
+  const activityCurrent = stats.activeToday ? 1 : 0;
   const levelCurrent = Math.max(0, acorns - levelState.currentLevelStart);
   const levelTarget = Math.max(1, levelState.nextLevelAt - levelState.currentLevelStart);
   const levelRemaining = Math.max(0, levelState.nextLevelAt - acorns);
@@ -218,12 +232,12 @@ function buildCurrentMission(stats, child, acorns, phaseSessions, activeStage, l
       },
       {
         id: 'daily_read',
-        label: 'Read 1 story today',
-        current: dailyCurrent,
+        label: 'Do 1 phonics activity today',
+        current: activityCurrent,
         target: 1,
-        complete: dailyCurrent >= 1,
-        detail: dailyCurrent >= 1 ? 'Daily practice done today.' : 'One completed read keeps the habit warm.',
-        hint: dailyCurrent >= 1 ? 'Come back tomorrow to grow the streak.' : 'Open Home, choose a story, and collect acorns after a passing read.',
+        complete: activityCurrent >= 1,
+        detail: activityCurrent >= 1 ? 'Day streak counted today.' : 'One reading or listening action keeps the streak warm.',
+        hint: activityCurrent >= 1 ? 'Come back tomorrow to keep the streak going.' : 'Open a story, listen to a line, or start reading aloud.',
       },
       {
         id: 'next_level',
@@ -273,10 +287,10 @@ function buildNextMilestone(stage, child) {
 }
 
 function taskLabelForStage(stage, child) {
-  if (stage.metric === 'score') return `Score ${stage.target}${stage.suffix || '%'} once`;
-  if (stage.metric === 'phase') return `Finish Phase ${child.phase} reads`;
+  if (stage.metric === 'score') return `Complete a verified ${stage.target}${stage.suffix || '%'} mission`;
+  if (stage.metric === 'phase') return `Finish verified Phase ${child.phase} missions`;
   if (stage.metric === 'acorns') return `Collect ${stage.target} acorns`;
-  return `Complete ${stage.target} story mission${stage.target === 1 ? '' : 's'}`;
+  return `Complete ${stage.target} verified story mission${stage.target === 1 ? '' : 's'}`;
 }
 
 function remainingTextForStage(stage, remaining, reward, child) {
@@ -285,38 +299,38 @@ function remainingTextForStage(stage, remaining, reward, child) {
     return `${remaining}${stage.suffix || '%'} more on the best read-aloud score unlocks ${reward}.`;
   }
   if (stage.metric === 'phase') {
-    return `${remaining} more Phase ${child.phase} read${remaining === 1 ? '' : 's'} ${unlockVerb} ${reward}.`;
+    return `${remaining} more verified Phase ${child.phase} mission${remaining === 1 ? '' : 's'} ${unlockVerb} ${reward}.`;
   }
   if (stage.metric === 'acorns') {
     return `${remaining} more acorn${remaining === 1 ? '' : 's'} ${unlockVerb} ${reward}.`;
   }
-  return `${remaining} more story mission${remaining === 1 ? '' : 's'} ${unlockVerb} ${reward}.`;
+  return `${remaining} more verified story mission${remaining === 1 ? '' : 's'} ${unlockVerb} ${reward}.`;
 }
 
 function actionForStage(stage, child) {
   if (stage.metric === 'score') {
-    return `Listen to the line, practise tricky words, then read aloud until one score reaches ${stage.target}${stage.suffix || '%'}.`;
+    return `Pass every sentence in a story, then collect rewards with an overall score of ${stage.target}${stage.suffix || '%'} or more.`;
   }
   if (stage.metric === 'phase') {
-    return `Choose Phase ${child.phase} stories from Home and finish each read aloud with a passing score.`;
+    return `Choose Phase ${child.phase} stories from Home, pass every sentence, then collect the mission reward.`;
   }
   if (stage.metric === 'acorns') {
-    return 'Complete read-aloud missions and collect acorns after each passing score.';
+    return 'Complete verified read-aloud missions to collect acorns.';
   }
-  return 'Open Home, choose a story, read it aloud, then collect acorns after a passing score.';
+  return 'Open Home, choose a story, pass every sentence aloud, then collect acorns.';
 }
 
 function whenForStage(stage, remaining, child) {
   if (stage.metric === 'score') {
-    return `As soon as one read-aloud reaches ${stage.target}${stage.suffix || '%'} or more.`;
+    return `After a completed story mission reaches ${stage.target}${stage.suffix || '%'} overall.`;
   }
   if (stage.metric === 'phase') {
-    return `After ${remaining} more completed Phase ${child.phase} read${remaining === 1 ? '' : 's'}.`;
+    return `After ${remaining} more verified Phase ${child.phase} mission${remaining === 1 ? '' : 's'}.`;
   }
   if (stage.metric === 'acorns') {
     return `About ${Math.max(1, Math.ceil(remaining / 10))} passing read${remaining <= 10 ? '' : 's'} if each earns around 10+ acorns.`;
   }
-  return `After ${remaining} more completed story mission${remaining === 1 ? '' : 's'}.`;
+  return `After ${remaining} more verified story mission${remaining === 1 ? '' : 's'}.`;
 }
 
 function nextRewardName(stats, child, acorns) {
@@ -341,7 +355,7 @@ function buildJourney(child, stats, acorns, phaseSessions, rewardTypes) {
       current: stats.completedSessions,
       target: 1,
       summary: 'Hear, tap, and copy first phonics sounds.',
-      goal: 'Finish your first read aloud.',
+      goal: 'Complete 1 verified story mission.',
       trophy: 'trophy_first_story',
     },
     {
@@ -355,7 +369,7 @@ function buildJourney(child, stats, acorns, phaseSessions, rewardTypes) {
       current: stats.completedSessions,
       target: 3,
       summary: 'Blend sounds into short words.',
-      goal: 'Complete 3 story missions.',
+      goal: 'Complete 3 verified story missions.',
       trophy: 'trophy_super_listener',
     },
     {
@@ -369,7 +383,7 @@ function buildJourney(child, stats, acorns, phaseSessions, rewardTypes) {
       current: phaseSessions,
       target: 5,
       summary: 'Read phase-safe words with confidence.',
-      goal: `Finish 5 Phase ${child.phase} reads.`,
+      goal: `Complete 5 verified Phase ${child.phase} missions.`,
       trophy: 'trophy_five_stories',
     },
     {
@@ -384,7 +398,7 @@ function buildJourney(child, stats, acorns, phaseSessions, rewardTypes) {
       target: 80,
       suffix: '%',
       summary: 'Read full sentences aloud clearly.',
-      goal: 'Score 80% or more once.',
+      goal: 'Finish a verified mission at 80% or more.',
       trophy: 'trophy_phase_star',
     },
     {
@@ -399,7 +413,7 @@ function buildJourney(child, stats, acorns, phaseSessions, rewardTypes) {
       target: 90,
       suffix: '%',
       summary: 'Climb into fluent full-story reading.',
-      goal: 'Score 90% on read aloud.',
+      goal: 'Finish a verified mission at 90% or more.',
       trophy: 'trophy_clear_reader',
     },
     {
@@ -453,7 +467,7 @@ function badgeDefinitions(stats, child, rewardTypes) {
       type: 'trophy_first_story',
       icon: 'star',
       label: 'First Story',
-      hint: 'Finish your first read aloud.',
+      hint: 'Complete your first verified mission.',
       earned: rewardTypes.has('trophy_first_story') || stats.completedSessions >= 1,
       progress: Math.min(1, stats.completedSessions / 1),
     },
@@ -461,7 +475,7 @@ function badgeDefinitions(stats, child, rewardTypes) {
       type: 'trophy_five_stories',
       icon: 'trail',
       label: 'Story Trail',
-      hint: 'Read 5 stories.',
+      hint: 'Complete 5 verified story missions.',
       earned: rewardTypes.has('trophy_five_stories') || stats.completedSessions >= 5,
       progress: Math.min(1, stats.completedSessions / 5),
     },
@@ -469,7 +483,7 @@ function badgeDefinitions(stats, child, rewardTypes) {
       type: 'trophy_clear_reader',
       icon: 'voice',
       label: 'Clear Reader',
-      hint: 'Score 90% on a read aloud.',
+      hint: 'Complete a verified mission at 90%.',
       earned: rewardTypes.has('trophy_clear_reader') || stats.bestScore >= 0.9,
       progress: Math.min(1, stats.bestScore / 0.9),
     },
@@ -477,7 +491,7 @@ function badgeDefinitions(stats, child, rewardTypes) {
       type: 'trophy_phase_star',
       icon: 'phase',
       label: 'Phase Star',
-      hint: 'Score 80% or more.',
+      hint: 'Complete a verified mission at 80%.',
       earned: rewardTypes.has('trophy_phase_star') || stats.bestScore >= 0.8,
       progress: Math.min(1, stats.bestScore / 0.8),
     },

@@ -30,12 +30,28 @@ export default function Reading() {
   const [manualTranscript, setManualTranscript] = useState('');
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState('');
-  const [selectedSentence, setSelectedSentence] = useState(isPractice ? 0 : -1);
+  const [selectedSentence, setSelectedSentence] = useState(0);
+  const [sentenceResults, setSentenceResults] = useState({});
   const [autoStopping, setAutoStopping] = useState(false);
   const autoStopRef = useRef(false);
   const stopRecordingRef = useRef(null);
+  const sentenceResultsRef = useRef({});
+  const recordingSentenceIndexRef = useRef(null);
+  const recordingExpectedTextRef = useRef('');
 
   const coach = usePronunciationCoach();
+
+  const markReadingActivity = useCallback(
+    (type) => {
+      if (!child?.id) return;
+      api.recordActivity(child.id, { type })
+        .then((result) => {
+          if (result.child) setChild(result.child);
+        })
+        .catch(() => {});
+    },
+    [child?.id, setChild],
+  );
 
   const sentences = useMemo(() => {
     if (!story) return [];
@@ -59,6 +75,22 @@ export default function Reading() {
   const activeSentence = selectedSentence >= 0 ? sentences[selectedSentence] : null;
   const expectedForAssess = activeSentence?.text || story?.text || '';
 
+  useEffect(() => {
+    const next = {};
+    sentenceResultsRef.current = next;
+    setSentenceResults(next);
+    setAssessment(null);
+    setLiveAssessment(null);
+    setManualTranscript('');
+    setSelectedSentence(sentences.length ? 0 : -1);
+  }, [session?.id, story?.id, sentences.length]);
+
+  useEffect(() => {
+    if (child?.id && story?.id && session?.id) {
+      markReadingActivity('read_page_open');
+    }
+  }, [child?.id, story?.id, session?.id, markReadingActivity]);
+
   const onAssessment = useCallback((msg) => {
     setLiveAssessment(msg);
     if (msg.encourage) setOwl(msg.encourage);
@@ -67,7 +99,14 @@ export default function Reading() {
   const onFinal = useCallback(
     async (msg) => {
       const passed = Boolean(msg.passed ?? msg.validation?.passed);
-      const normalized = { ...msg, passed };
+      const audioVerified = isRewardEligibleAssessment(msg);
+      const sentenceComplete = passed && audioVerified;
+      const normalized = { ...msg, passed, audioVerified, sentenceComplete };
+      const attemptedIndex =
+        typeof recordingSentenceIndexRef.current === 'number'
+          ? recordingSentenceIndexRef.current
+          : selectedSentence;
+      const attemptedSentence = sentences.find((s) => s.index === attemptedIndex) || activeSentence;
       setLiveAssessment(null);
       setAssessment(normalized);
       if (msg.transcript) setManualTranscript(msg.transcript);
@@ -79,23 +118,62 @@ export default function Reading() {
         || (msg.transcript
           ? `${passed ? 'Nice reading!' : 'Not quite yet.'} I heard: “${msg.transcript}” (~${pct}%).`
           : 'I could not hear clear words — please try again.');
-      setOwl(heard);
+
+      let progressNote = '';
+      if (attemptedSentence) {
+        const resultRecord = {
+          passed: sentenceComplete,
+          scoredPassed: passed,
+          audioVerified,
+          score: pct,
+          transcript: msg.transcript || '',
+          validation: msg.validation,
+          message: msg.message || '',
+          updatedAt: new Date().toISOString(),
+        };
+        const nextResults = {
+          ...sentenceResultsRef.current,
+          [attemptedSentence.index]: resultRecord,
+        };
+        sentenceResultsRef.current = nextResults;
+        setSentenceResults(nextResults);
+
+        if (sentenceComplete) {
+          const nextSentence = findNextIncompleteSentence(
+            sentences,
+            nextResults,
+            attemptedSentence.index,
+          );
+          if (nextSentence) {
+            setSelectedSentence(nextSentence.index);
+            progressNote = `Sentence ${attemptedSentence.index + 1} complete. Next is sentence ${nextSentence.index + 1}.`;
+          } else {
+            progressNote = 'All sentences are complete. You can collect acorns now.';
+          }
+        } else if (passed && !audioVerified) {
+          progressNote = `Sentence ${attemptedSentence.index + 1} was only a demo score. Use the microphone to unlock rewards.`;
+        } else {
+          progressNote = `Sentence ${attemptedSentence.index + 1} still needs another try.`;
+        }
+      }
+
+      setOwl(progressNote ? `${heard} ${progressNote}` : heard);
       try {
         const res = await api.coach({
           childId: child.id,
           // Never send Whisper text as the line to practise — only the real target
-          targetSentence: expectedForAssess,
+          targetSentence: attemptedSentence?.text || expectedForAssess,
           context: `score ${pct}% · coverage ${Math.round((msg.validation?.coverage || 0) * 100)}% · scorer ${msg.validation?.scorer || 'unknown'}`,
           issue: passed ? 'pass' : msg.validation?.reason || 'below_threshold',
           speak: true,
         });
-        setOwl(`${heard} ${res.message}`);
+        setOwl(`${heard} ${res.message}${progressNote ? ` ${progressNote}` : ''}`);
         if (res.audio?.url) new Audio(res.audio.url).play().catch(() => {});
       } catch {
         /* ignore */
       }
     },
-    [child?.id, story?.title, expectedForAssess, setFeedback],
+    [activeSentence, child?.id, expectedForAssess, selectedSentence, sentences, setFeedback],
   );
 
   const onQuality = useCallback((msg) => {
@@ -155,6 +233,7 @@ export default function Reading() {
   }, [audio.recording, audio.liveTranscript, expectedForAssess]);
 
   const hearPhoneme = (payload) => {
+    markReadingActivity('hear_phoneme');
     setOwl(`Listen carefully to /${payload.ipa}/…`);
     coach.pronounce({
       type: 'phoneme',
@@ -166,6 +245,7 @@ export default function Reading() {
   };
 
   const hearWord = (payload) => {
+    markReadingActivity('hear_word');
     setOwl(`Let's sound out "${payload.word}" together…`);
     coach.pronounce({
       type: 'word',
@@ -188,6 +268,7 @@ export default function Reading() {
    * @param {'phonemes'|'words'|'full'} hearMode
    */
   const hearSentence = (sentence, hearMode = 'phonemes') => {
+    markReadingActivity(`hear_sentence_${hearMode}`);
     setSelectedSentence(sentence.index);
     setManualTranscript('');
     setAssessment(null);
@@ -216,6 +297,7 @@ export default function Reading() {
    * @param {'phonemes'|'words'|'full'} [hearMode]
    */
   const hearStory = (hearMode = 'phonemes') => {
+    markReadingActivity(`hear_story_${hearMode}`);
     setSelectedSentence(-1);
     const tips = {
       phonemes: 'Phonemes first, then each word, then each sentence…',
@@ -261,28 +343,52 @@ export default function Reading() {
     );
   }
 
+  const passedSentenceCount = sentences.filter((s) => sentenceResults[s.index]?.passed).length;
+  const allSentencesPassed = sentences.length > 0 && passedSentenceCount === sentences.length;
+  const nextIncompleteSentence =
+    sentences.find((s) => !sentenceResults[s.index]?.passed) || null;
+  const completionTranscript = sentences
+    .map((s) => (sentenceResults[s.index]?.passed ? sentenceResults[s.index]?.transcript || '' : ''))
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
   const finish = async (force = false) => {
     setCompleting(true);
     setError('');
-    // Only the Whisper (or explicit typed demo) transcript — never the expected sentence
-    const transcript = String(assessment?.transcript || manualTranscript || '').trim();
-    if (!force && !transcript) {
-      setError('Read aloud first: Start → speak the sentence → Stop & assess.');
-      setOwl('I need to hear you read before we collect acorns.');
+    if (force) {
+      setError('Demo completion no longer awards rewards. Pass every sentence to collect acorns.');
+      setOwl('Mrs Owl only opens the reward chest after every sentence has a passing read.');
       setCompleting(false);
       return;
     }
-    if (!force && assessment && assessment.passed === false) {
-      setError('That reading did not match closely enough yet. Try Stop & assess again.');
-      setOwl(assessment.message || 'Shall we try that sentence again?');
+    if (!allSentencesPassed) {
+      const next = nextIncompleteSentence || sentences[0];
+      if (next) setSelectedSentence(next.index);
+      const message = `Pass every sentence first (${passedSentenceCount}/${sentences.length} complete).`;
+      setError(message);
+      setOwl(
+        next
+          ? `${message} Sentence ${next.index + 1} is ready to read.`
+          : 'Read aloud first, then collect acorns.',
+      );
+      setCompleting(false);
+      return;
+    }
+    // Only transcripts from passed sentence assessments — never the expected sentence.
+    const transcript = completionTranscript;
+    if (!transcript) {
+      setError('Read aloud first: Start → speak each sentence → pass every line.');
+      setOwl('I need to hear every sentence before we collect acorns.');
       setCompleting(false);
       return;
     }
     try {
       const result = await api.completeSession(session.id, {
-        transcript: force && !transcript ? '(demo complete)' : transcript,
-        force,
-        expectedText: expectedForAssess,
+        transcript,
+        force: false,
+        expectedText: story.text,
+        completedSentenceIndexes: sentences.map((s) => s.index),
       });
       setLastRewards(result.rewards);
       if (result.rewards?.child) setChild(result.rewards.child);
@@ -324,6 +430,11 @@ export default function Reading() {
   const currentScore =
     assessment?.validation?.displayScore ??
     (assessment?.validation ? Math.round((assessment.validation.combined || 0) * 100) : null);
+  const scoreScope =
+    assessment?.validation?.scoringScope === 'overall' ? 'whole story' : 'line';
+  const sentenceScores = Array.isArray(assessment?.validation?.sentenceScores)
+    ? assessment.validation.sentenceScores
+    : [];
 
   return (
     <section className="reading">
@@ -407,24 +518,31 @@ export default function Reading() {
           </div>
 
           <div className="sentence-list" aria-label="Sentences to read">
-            {sentences.map((s) => (
-              <div
-                key={s.index}
-                className={`sentence-row ${selectedSentence === s.index ? 'active' : ''}`}
-              >
-                <button
-                  type="button"
-                  className={`sentence-chip ${selectedSentence === s.index ? 'on' : ''} ${
-                    coach.active.sentenceIndex === s.index ? 'playing' : ''
-                  }`}
-                  onClick={() => selectSentence(s)}
-                  title="Select this sentence to read and evaluate"
+            {sentences.map((s) => {
+              const result = sentenceResults[s.index];
+              const status = result?.passed ? 'complete' : result ? 'retry' : 'todo';
+              return (
+                <div
+                  key={s.index}
+                  className={`sentence-row ${selectedSentence === s.index ? 'active' : ''} ${status}`}
                 >
-                  <span className="sentence-num">{s.index + 1}</span>
-                  <span className="sentence-preview">{s.text}</span>
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    className={`sentence-chip ${selectedSentence === s.index ? 'on' : ''} ${
+                      coach.active.sentenceIndex === s.index ? 'playing' : ''
+                    }`}
+                    onClick={() => selectSentence(s)}
+                    title={sentenceTitle(s, result)}
+                  >
+                    <span className="sentence-num">{s.index + 1}</span>
+                    <span className="sentence-preview">{s.text}</span>
+                    <span className={`sentence-status ${status}`}>
+                      {result?.passed ? `✓ ${result.score}%` : result ? `Retry ${result.score}%` : 'Not read'}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -573,13 +691,13 @@ export default function Reading() {
                 className="btn primary"
                 disabled={audio.preparing}
                 onClick={() => {
-                  // Always score a single selected sentence (not the whole page)
-                  if (selectedSentence < 0 && sentences.length) {
-                    setSelectedSentence(0);
-                    audio.setExpectedText(sentences[0].text);
-                  } else {
-                    audio.setExpectedText(expectedForAssess);
-                  }
+                  const targetSentence = activeSentence || nextIncompleteSentence || sentences[0];
+                  if (!targetSentence) return;
+                  markReadingActivity('start_reading_aloud');
+                  setSelectedSentence(targetSentence.index);
+                  recordingSentenceIndexRef.current = targetSentence.index;
+                  recordingExpectedTextRef.current = targetSentence.text;
+                  audio.setExpectedText(targetSentence.text);
                   setAssessment(null);
                   setManualTranscript('');
                   setError('');
@@ -596,7 +714,7 @@ export default function Reading() {
                   audio.stopRecording({
                     typedTranscript: '',
                     allowTypedFallback: false,
-                    expectedText: expectedForAssess,
+                    expectedText: recordingExpectedTextRef.current || expectedForAssess,
                   })
                 }
               >
@@ -663,17 +781,26 @@ export default function Reading() {
             <button
               className="btn secondary"
               onClick={() => finish(false)}
-              disabled={completing || !assessment?.passed}
+              disabled={completing || !allSentencesPassed}
               title={
-                assessment?.passed
-                  ? 'Collect acorns for a passing reading'
-                  : 'Pass Stop & assess first'
+                allSentencesPassed
+                  ? 'Collect acorns for this completed reading mission'
+                  : `Pass every sentence first (${passedSentenceCount}/${sentences.length})`
               }
             >
-              {completing ? 'Checking…' : 'Finish & collect acorns'}
+              {completing
+                ? 'Checking…'
+                : allSentencesPassed
+                  ? 'Finish & collect acorns'
+                  : `Pass all sentences (${passedSentenceCount}/${sentences.length})`}
             </button>
-            <button className="btn ghost" onClick={() => finish(true)} disabled={completing}>
-              Complete anyway (demo)
+            <button
+              type="button"
+              className="btn ghost"
+              disabled
+              title="Demo scores do not unlock rewards"
+            >
+              Demo has no rewards
             </button>
           </div>
           {error && <p className="error">{error}</p>}
@@ -682,14 +809,29 @@ export default function Reading() {
               <div className="score-hero">
                 <span className="score-ring">{currentScore}%</span>
                 <div>
-                  <strong>{assessment.passed ? 'Great reading' : 'Try that line again'}</strong>
+                  <strong>
+                    {assessment.passed ? 'Great reading' : `Try the ${scoreScope} again`}
+                  </strong>
                   <p>
                     {assessment.passed
-                      ? 'You matched the sentence closely.'
+                      ? `You matched the ${scoreScope} closely.`
                       : 'Practise the highlighted words, then press Start again.'}
                   </p>
                 </div>
               </div>
+              {sentenceScores.length > 1 && (
+                <div className="sentence-score-list" aria-label="Sentence scores">
+                  {sentenceScores.map((s) => (
+                    <span
+                      key={`sentence-score-${s.sentenceIndex}`}
+                      className={`sentence-score-pill ${s.passed ? 'passed' : 'retry'}`}
+                    >
+                      <span>{s.passed ? '✓' : '!'}</span>
+                      Sentence {s.sentenceNumber}: {s.displayScore}%
+                    </span>
+                  ))}
+                </div>
+              )}
               {Array.isArray(assessment.validation.wordScores) &&
                 assessment.validation.wordScores.length > 0 && (
                   <ul className="word-score-list" aria-label="Per-word phonics scores">
@@ -730,6 +872,32 @@ function wordScoreMark(status) {
   if (status === 'exact') return '✓';
   if (status === 'close') return '~';
   return '!';
+}
+
+function isRewardEligibleAssessment(msg) {
+  const path = String(msg?.path || '').toLowerCase();
+  if (!path) return false;
+  if (path.includes('typed') || path.includes('demo')) return false;
+  return path.includes('whisper') || path.includes('asr');
+}
+
+function findNextIncompleteSentence(sentences, results, fromIndex = -1) {
+  if (!sentences.length) return null;
+  const ordered = [
+    ...sentences.filter((s) => s.index > fromIndex),
+    ...sentences.filter((s) => s.index <= fromIndex),
+  ];
+  return ordered.find((s) => !results[s.index]?.passed) || null;
+}
+
+function sentenceTitle(sentence, result) {
+  if (result?.passed) {
+    return `Sentence ${sentence.index + 1} passed with a verified ${result.score}% score`;
+  }
+  if (result) {
+    return `Sentence ${sentence.index + 1} needs retry. Latest score ${result.score}%`;
+  }
+  return `Select sentence ${sentence.index + 1} to hear and read`;
 }
 
 function countWordsInOrder(expectedWords, heardWords) {

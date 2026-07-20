@@ -22,6 +22,8 @@ export const api = {
   getChild: (id) => request(`/api/children/${id}`),
   updateChild: (id, body) =>
     request(`/api/children/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  recordActivity: (id, body = {}) =>
+    request(`/api/children/${id}/activity`, { method: 'POST', body: JSON.stringify(body) }),
   getProgress: (id) => request(`/api/children/${id}/progress`),
   getRewards: (id) => request(`/api/children/${id}/rewards`),
   uploadChildAvatar: (id, image) =>

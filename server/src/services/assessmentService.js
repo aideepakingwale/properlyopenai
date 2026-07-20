@@ -51,8 +51,8 @@ export function assessInsufficient(expectedText, reason = 'insufficient_audio') 
 }
 
 /**
- * When Whisper mangles child CVC words, ask a mini model to recover a plausible reading.
- * Conservative: only rewrite clear ASR slips toward the expected line.
+ * When Whisper adds punctuation or filler, ask a mini model to clean the transcript.
+ * Do not snap mistakes back to the target line; scoring must stay transcript-led.
  */
 async function refineChildTranscript(openai, expectedText, whisperText) {
   try {
@@ -63,11 +63,13 @@ async function refineChildTranscript(openai, expectedText, whisperText) {
       messages: [
         {
           role: 'system',
-          content: `You fix Whisper ASR errors for UK Reception/Year 1 phonics (Letters and Sounds).
-Children read SHORT CVC lines. Whisper often mishears: mat→pod/mad, on→in, a→the, sat→sad.
+          content: `You clean Whisper ASR text for UK Reception/Year 1 phonics (Letters and Sounds).
+Children read SHORT CVC lines.
 Rules:
-- If Whisper is a plausible mishearing of the EXPECTED line (same word count ±1, similar sounds), return the EXPECTED line.
-- If Whisper is clearly a different sentence, return the best cleaned transcription of Whisper (do NOT force expected).
+- Return the words the child actually appears to have said.
+- Do NOT correct a misread word to the expected target.
+- Do NOT return the expected line unless Whisper already contains the same words.
+- Remove only obvious filler, repeated false starts, and punctuation noise.
 - Never invent extra story sentences.
 JSON only: {"transcript":"...","usedExpected":true|false,"reason":"..."}`,
         },
@@ -121,7 +123,7 @@ export async function assessWithWhisper(expectedText, audioBuffer, mime = 'audio
       file: fs.createReadStream(tmp),
       model: process.env.WHISPER_MODEL || 'whisper-1',
       language: 'en',
-      prompt: `UK phonics. The child is reading exactly this sentence: ${expected}`,
+      prompt: `UK child phonics reading. Target text for context only: "${expected}". Transcribe the words actually spoken. Do not correct mistakes to the target sentence.`,
       temperature: 0,
     });
     const whisperText = String(transcription.text || '').trim();
@@ -135,19 +137,16 @@ export async function assessWithWhisper(expectedText, audioBuffer, mime = 'audio
 
     let result = assessHeuristic(expectedText, transcript);
 
-    // If not a clear pass, try lexicon snap (already inside validate) + GPT refine
+    // If not a clear pass, clean ASR noise only. Never use a forced expected line for scoring.
     if (!result.validation.passed) {
       refined = await refineChildTranscript(openai, expected, whisperText);
-      if (refined?.transcript) {
+      if (refined?.transcript && !refined.usedExpected) {
         const refinedResult = assessHeuristic(expectedText, refined.transcript);
-        // Accept refine only if it improves the score (avoids random “force pass”)
-        if (
-          refinedResult.validation.combined >= result.validation.combined ||
-          refinedResult.validation.passed
-        ) {
+        // Accept only transcript cleanup that improves the score without forcing the target.
+        if (refinedResult.validation.combined >= result.validation.combined) {
           result = refinedResult;
           transcript = refined.transcript;
-          pathLabel = refined.usedExpected ? 'whisper+refine-expected' : 'whisper+refine';
+          pathLabel = 'whisper+refine';
         }
       }
     }
@@ -163,11 +162,15 @@ export async function assessWithWhisper(expectedText, audioBuffer, mime = 'audio
       .filter((w) => w.status === 'missing' || w.status === 'wrong' || w.status === 'partial')
       .slice(0, 3)
       .map((w) => w.expected);
+    const focusSentence = result.validation.focusSentence?.sentenceNumber
+      ? ` Start with sentence ${result.validation.focusSentence.sentenceNumber}.`
+      : '';
+    const scope = result.validation.scoringScope === 'overall' ? 'overall' : 'for this line';
     result.message = result.validation.passed
-      ? `Solid reading — about ${pct}% overall.${weak.length ? ` Keep practising: ${weak.join(', ')}.` : ''}`
-      : `Not quite yet (~${pct}%).${
+      ? `Great reading — ${pct}% ${scope}.`
+      : `Not quite yet (~${pct}% ${scope}).${
           weak.length ? ` Focus on: ${weak.join(', ')}.` : ''
-        } Read the target sentence again slowly.`;
+        }${focusSentence} Read the target again slowly.`;
     result.passed = result.validation.passed;
     return result;
   } catch (err) {

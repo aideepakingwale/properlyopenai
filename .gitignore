@@ -19,3 +19,5 @@ scripts/local_tts_gui.py
 artifacts/architecture/properly-technical-architecture.svg
 /artifacts
 /tmp
+/scripts
+OPENAI_CODEX_PROJECT_README.md

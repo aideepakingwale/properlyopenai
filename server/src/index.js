@@ -12,6 +12,7 @@ import coachRoutes from './routes/coach.js';
 import phonicsRoutes from './routes/phonics.js';
 import pronounceRoutes from './routes/pronounce.js';
 import { attachAudioHub } from './ws/audioHub.js';
+import { READING_SCORER_VERSION } from './services/validationService.js';
 
 fs.mkdirSync(config.storageDir, { recursive: true });
 getDb();
@@ -73,7 +74,7 @@ app.get('/api/health', (_req, res) => {
     illustrationQuality: config.illustrationQuality,
     illustrationCacheScope: config.illustrationCacheScope,
     jaccardThreshold: config.jaccardThreshold,
-    readingScorer: 'v6-word-phonics',
+    readingScorer: READING_SCORER_VERSION,
   });
 });
 

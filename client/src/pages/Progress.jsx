@@ -79,8 +79,8 @@ export default function Progress() {
             <p className="eyebrow">Adventure map</p>
             <h1>Mrs Owl&apos;s Phonics Quest</h1>
             <p className="progress-lede">
-              Follow the path, finish tiny missions, open reward chests, and grow from sounds to
-              full story reading.
+              Daily listening keeps the streak alive. Verified read-aloud missions unlock chests,
+              badges, acorns, and the next stage.
             </p>
           </div>
           <div className="quest-counters" aria-label="Quest counters">
