@@ -21,3 +21,5 @@ artifacts/architecture/properly-technical-architecture.svg
 /tmp
 /scripts
 OPENAI_CODEX_PROJECT_README.md
+docs/architecture/PROPERLY_LLD.md
+docs/architecture/PROPERLY_HLD.md
